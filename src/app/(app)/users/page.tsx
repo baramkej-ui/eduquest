@@ -1,9 +1,10 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useCollection, WithId } from '@/firebase';
+import { useCollection } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
-import { useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { useFirestore, useMemoFirebase } from '@/firebase';
+import { useAppUser } from '@/app/(app)/layout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -24,29 +25,10 @@ import {
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { User as AppUser } from '@/types/user';
-import { doc, getDoc } from 'firebase/firestore';
-import { useState, useEffect } from 'react';
 
 export default function UsersPage() {
   const firestore = useFirestore();
-  const { user: firebaseUser } = useUser();
-  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
-  const [isCurrentUserLoading, setIsCurrentUserLoading] = useState(true);
-
-  useEffect(() => {
-    if (firestore && firebaseUser) {
-      const userDocRef = doc(firestore, 'users', firebaseUser.uid);
-      getDoc(userDocRef).then((docSnap) => {
-        if (docSnap.exists()) {
-          setCurrentUser(docSnap.data() as AppUser);
-        }
-        setIsCurrentUserLoading(false);
-      });
-    } else {
-      setIsCurrentUserLoading(false);
-    }
-  }, [firestore, firebaseUser]);
-  
+  const currentUser = useAppUser();
   const isAdmin = currentUser?.role === 'admin';
 
   const usersQuery = useMemoFirebase(
@@ -57,10 +39,8 @@ export default function UsersPage() {
     [firestore, isAdmin]
   );
 
-  const { data: users, isLoading: areUsersLoading } = useCollection<AppUser>(usersQuery);
+  const { data: users, isLoading } = useCollection<AppUser>(usersQuery);
   
-  const isLoading = isCurrentUserLoading || areUsersLoading;
-
   const getAvatar = (index: number) => {
     const avatarId = `student-avatar-${(index % 4) + 1}`;
     return (
