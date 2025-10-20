@@ -1,3 +1,40 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "login-bg",
+      "description": "Abstract image for login page background",
+      "imageUrl": "https://images.unsplash.com/photo-1682884397531-e3d7650f02fd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxhYnN0cmFjdCUyMGxlYXJuaW5nfGVufDB8fHx8MTc2MDkzOTMzMnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "abstract learning"
+    },
+    {
+      "id": "signup-bg",
+      "description": "Abstract image for signup page background",
+      "imageUrl": "https://images.unsplash.com/photo-1727455507512-273be3efe711?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxhYnN0cmFjdCUyMGNyZWF0aW9ufGVufDB8fHx8MTc2MDk0MjUwNXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "abstract creation"
+    },
+    {
+      "id": "student-avatar-1",
+      "description": "Avatar for student Alice",
+      "imageUrl": "https://images.unsplash.com/photo-1690444963408-9573a17a8058?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxwb3J0cmFpdCUyMHdvbWFufGVufDB8fHx8MTc2MDk0MjUwNnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "portrait woman"
+    },
+    {
+      "id": "student-avatar-2",
+      "description": "Avatar for student Bob",
+      "imageUrl": "https://images.unsplash.com/photo-1715838854648-ea200803934a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxwb3J0cmFpdCUyMG1hbnxlbnwwfHx8fDE3NjA4NDM0NzJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "portrait man"
+    },
+    {
+      "id": "student-avatar-3",
+      "description": "Avatar for student Charlie",
+      "imageUrl": "https://images.unsplash.com/photo-1653914900849-beb53df7f5ea?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxwb3J0cmFpdCUyMHBlcnNvbnxlbnwwfHx8fDE3NjA4NDIzNzZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "portrait person"
+    },
+    {
+      "id": "student-avatar-4",
+      "description": "Avatar for student Diana",
+      "imageUrl": "https://images.unsplash.com/photo-1669844444850-5acd7e8c71c5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxwb3J0cmFpdCUyMHdvbWFufGVufDB8fHx8MTc2MDk0MjUwNnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "portrait woman"
+    }
+  ]
 }
