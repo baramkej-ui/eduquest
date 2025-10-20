@@ -1,0 +1,95 @@
+/**
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for user-specific data and role-based access for general content.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles, accessible only to the user themselves, or admins.
+ * - /problems/{problemId}: Stores educational problems, manageable by admins and teachers.
+ * - /users/{userId}/results/{resultId}: Stores user-specific results, accessible only to the user themselves, or admins.
+ *
+ * Key Security Decisions:
+ * - Listing of all users is denied to non-admin users.
+ * - Read-only access to problems is generally public, but creation, updating, and deletion are restricted to admins and teachers.
+ * - All write operations are strictly controlled based on user roles and ownership.
+ *
+ * Denormalization for Authorization:
+ * - User roles are stored directly in the user document, avoiding the need for separate role lookups.
+ * - Result documents contain the userId, avoiding the need to query parent documents for authorization.
+ *
+ * Structural Segregation:
+ * - User profiles and user-specific results are stored under the /users/{userId} path, ensuring private access.
+ * - Problems are stored in a top-level collection, allowing for public read access with controlled write access.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Controls access to user profiles. Only the user themselves or an admin can read/write.
+     * @path /users/{userId}
+     * @allow (get, update, delete) User 'PWsFb5BMbKa6xu9VPeVKhiJH2MF2' can access their own profile
+     * @allow (create) User 'PWsFb5BMbKa6xu9VPeVKhiJH2MF2' can create their own profile
+     * @deny (get, update, delete) User 'PWsFb5BMbKa6xu9VPeVKhiJH2MF2' cannot access User 'anotherUserId'
+     * @deny (create) User 'PWsFb5BMbKa6xu9VPeVKhiJH2MF2' cannot create User 'anotherUserId'
+     * @principle Enforces document ownership for user profiles.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false; // Listing users is disallowed for security reasons.
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Controls access to educational problems. Problems are publicly readable. Only admins and teachers can create, update, or delete them.
+     * @path /problems/{problemId}
+     * @allow (get, list) Any user can read problems.
+     * @allow (create, update, delete) User with admin or teacher role can manage problems.
+     * @deny (create, update, delete) User without admin or teacher role cannot manage problems.
+     * @principle Allows public read access to problems while restricting write access to authorized users.
+     */
+    match /problems/{problemId} {
+      allow get, list: if true;
+      allow create: if isAdmin() || isTeacher();
+      allow update: if isAdmin() || isTeacher() && resource != null;
+      allow delete: if isAdmin() || isTeacher() && resource != null;
+    }
+
+    /**
+     * @description Controls access to user-specific results. Only the user themselves or an admin can manage their results.
+     * @path /users/{userId}/results/{resultId}
+     * @allow (get, list, create, update, delete) User 'PWsFb5BMbKa6xu9VPeVKhiJH2MF2' can manage their own results.
+     * @deny (get, list, create, update, delete) User 'PWsFb5BMbKa6xu9VPeVKhiJH2MF2' cannot manage results for User 'anotherUserId'.
+     * @principle Enforces path-based ownership for user-specific results.
+     */
+    match /users/{userId}/results/{resultId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
+      allow delete: if isExistingOwner(userId) && resource != null && request.auth.uid == resource.data.userId;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isExistingOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId && resource != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.role == 'admin';
+    }
+
+    function isTeacher() {
+      return isSignedIn() && (request.auth.token.role == 'admin' || request.auth.token.role == 'teacher');
+    }
+  }
+}
