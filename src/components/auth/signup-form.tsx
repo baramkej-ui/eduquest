@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore, setDocumentNonBlocking } from '@/firebase';
 import { Loader2 } from 'lucide-react';
+import { User } from '@/types/user';
 
 const formSchema = z.object({
   displayName: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -72,8 +73,7 @@ export default function SignupForm() {
       await updateProfile(user, { displayName: values.displayName });
 
       const userDocRef = doc(firestore, 'users', user.uid);
-      // The user's ID is the doc ID, so no need to store it inside the document itself.
-      const userData = {
+      const userData: Omit<User, 'id'> = {
         displayName: values.displayName,
         email: values.email,
         role: 'admin', // Default role for self-signup is admin
@@ -89,11 +89,12 @@ export default function SignupForm() {
 
       router.push('/');
     } catch (error: any) {
-      console.error(error);
       toast({
         variant: 'destructive',
         title: 'Signup Failed',
-        description: error.message || 'An unexpected error occurred.',
+        description: error.code === 'auth/email-already-in-use' 
+          ? 'This email is already in use by another account.'
+          : error.message || 'An unexpected error occurred.',
       });
     } finally {
       setLoading(false);

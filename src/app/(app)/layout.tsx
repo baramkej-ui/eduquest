@@ -33,18 +33,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isLoading = isUserLoading || isAppUserLoading;
 
   useEffect(() => {
-    // Wait until all loading is complete before making any decisions.
-    if (isLoading) {
-      return;
-    }
-
-    // After loading, if there's no Firebase user, or no app user profile,
-    // or the user is not an admin, then sign out and redirect to login.
-    if (!firebaseUser || !appUser || appUser.role !== 'admin') {
-      if (auth) {
-        signOut(auth); // Ensure any partial login state is cleared
+    // Only run this effect when loading is complete
+    if (!isLoading) {
+      if (!firebaseUser || !appUser || appUser.role !== 'admin') {
+        if (auth) {
+          signOut(auth); // Ensure any partial login state is cleared
+        }
+        router.push('/');
       }
-      router.push('/');
     }
   }, [isLoading, firebaseUser, appUser, auth, router]);
 

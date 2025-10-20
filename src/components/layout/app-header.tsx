@@ -32,7 +32,7 @@ export default function AppHeader() {
 
   const getInitials = (name?: string | null) => {
     if (!name) return 'U';
-    const names = name.trim().split(' ');
+    const names = name.trim().split(' ').filter(Boolean);
     if (names.length > 1) {
       return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
     }
@@ -46,10 +46,10 @@ export default function AppHeader() {
       {appUser && (
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
-            <span className="text-sm font-medium capitalize text-red-600">
+            <span className="text-sm font-medium capitalize text-foreground/70">
               {appUser.role}
             </span>{' '}
-            <span className="text-sm font-medium text-blue-600">
+            <span className="text-sm font-medium text-foreground">
               {appUser.displayName}
             </span>
           </div>

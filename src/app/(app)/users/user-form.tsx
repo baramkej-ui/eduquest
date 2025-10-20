@@ -34,69 +34,55 @@ import {
   useFirestore,
   updateDocumentNonBlocking,
   setDocumentNonBlocking,
-  firebaseConfig
+  firebaseConfig,
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import type { WithId } from '@/firebase/firestore/use-collection';
 import type { User as AppUser, UserRole } from '@/types/user';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { initializeApp } from 'firebase/app';
+import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
+import { nationalities } from '@/types/user';
 
-const nationalities = [
-  'S. Korea',
-  'Japan',
-  'China',
-  'Taiwan',
-  'Mongol',
-  'Thailand',
-  'Turkiye',
-  'Saudi Arabia',
-] as const;
-
-
-const getFormSchema = (mode: 'add' | 'edit') => z
-  .object({
-    displayName: z.string().min(2, { message: 'Display name is required' }),
-    email: z.string().email(),
-    role: z.enum(['admin', 'teacher', 'student']),
-    password: z.string().optional(),
-    confirmPassword: z.string().optional(),
-    nationality: z.enum(nationalities),
-  })
-  .refine(
-    (data) => {
-      if (mode === 'add') {
-        return data.password && data.password.length >= 6;
+const getFormSchema = (mode: 'add' | 'edit') =>
+  z
+    .object({
+      displayName: z.string().min(2, { message: 'Display name is required' }),
+      email: z.string().email(),
+      role: z.enum(['admin', 'teacher', 'student']),
+      password: z.string().optional(),
+      confirmPassword: z.string().optional(),
+      nationality: z.enum(nationalities),
+    })
+    .refine(
+      (data) => {
+        if (mode === 'add') {
+          return data.password && data.password.length >= 6;
+        }
+        return true;
+      },
+      {
+        message: 'Password must be at least 6 characters.',
+        path: ['password'],
       }
-      return true;
-    },
-    {
-      message: 'Password must be at least 6 characters.',
-      path: ['password'],
-    }
-  )
-  .refine(
-    (data) => {
-      if (mode === 'add') {
-        return data.password === data.confirmPassword;
+    )
+    .refine(
+      (data) => {
+        if (mode === 'add') {
+          return data.password === data.confirmPassword;
+        }
+        return true;
+      },
+      {
+        message: "Passwords don't match",
+        path: ['confirmPassword'],
       }
-      return true;
-    },
-    {
-      message: "Passwords don't match",
-      path: ['confirmPassword'],
-    }
-  );
-
+    );
 
 export type UserFormProps = {
   onOpenChange: (open: boolean) => void;
-} & (
-  | { mode: 'add'; user?: never }
-  | { mode: 'edit'; user: WithId<AppUser> }
-);
+} & ({ mode: 'add'; user?: never } | { mode: 'edit'; user: WithId<AppUser> });
 
 export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
   const { toast } = useToast();
@@ -120,20 +106,18 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!firestore) return;
     setLoading(true);
-    
+
+    const tempAppName = `temp-auth-app-${Date.now()}`;
+    const tempApp = initializeApp(firebaseConfig, tempAppName);
+
     try {
       if (mode === 'add') {
         if (!values.password) {
           throw new Error('Password is required to create a new user.');
         }
 
-        // Create a temporary, secondary Firebase app instance to create user
-        // This avoids signing out the current admin user
-        const tempAppName = `temp-auth-app-${Date.now()}`;
-        const tempApp = initializeApp(firebaseConfig, tempAppName);
         const tempAuth = getAuth(tempApp);
-        
-        // 1. Create Firebase Auth user using the temporary instance
+
         const userCredential = await createUserWithEmailAndPassword(
           tempAuth,
           values.email,
@@ -141,10 +125,9 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
         );
         const newAuthUser = userCredential.user;
 
-        // 2. Create user document in Firestore
         const usersCollection = collection(firestore, 'users');
         const userDocRef = doc(usersCollection, newAuthUser.uid);
-        
+
         const newUser: Omit<AppUser, 'id'> = {
           displayName: values.displayName,
           email: values.email,
@@ -153,9 +136,11 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
         };
 
         setDocumentNonBlocking(userDocRef, newUser, {});
-        
-        toast({ title: 'User Added', description: `${values.displayName} has been added.` });
 
+        toast({
+          title: 'User Added',
+          description: `${values.displayName} has been added.`,
+        });
       } else if (mode === 'edit' && user) {
         const userDocRef = doc(firestore, 'users', user.id);
         const updatedData = {
@@ -164,21 +149,24 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
           nationality: values.nationality,
         };
         updateDocumentNonBlocking(userDocRef, updatedData);
-        toast({ title: 'User Updated', description: `${values.displayName}'s information has been updated.` });
+        toast({
+          title: 'User Updated',
+          description: `${values.displayName}'s information has been updated.`,
+        });
       }
 
       onOpenChange(false);
-
     } catch (error: any) {
-      console.error(error);
       toast({
         variant: 'destructive',
         title: `Failed to ${mode} user`,
-        description: error.code === 'auth/email-already-in-use' 
-          ? 'This email is already in use by another account.'
-          : error.message || 'An unexpected error occurred.',
+        description:
+          error.code === 'auth/email-already-in-use'
+            ? 'This email is already in use by another account.'
+            : error.message || 'An unexpected error occurred.',
       });
     } finally {
+      await deleteApp(tempApp);
       setLoading(false);
     }
   }
@@ -187,7 +175,9 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
     <Dialog open={true} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{mode === 'add' ? 'Add New User' : 'Edit User'}</DialogTitle>
+          <DialogTitle>
+            {mode === 'add' ? 'Add New User' : 'Edit User'}
+          </DialogTitle>
           <DialogDescription>
             {mode === 'add'
               ? 'Enter the details for the new user.'
@@ -216,7 +206,12 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="user@example.com" {...field} disabled={mode === 'edit'} />
+                    <Input
+                      type="email"
+                      placeholder="user@example.com"
+                      {...field}
+                      disabled={mode === 'edit'}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -231,7 +226,11 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
                     <FormItem>
                       <FormLabel>Password</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="••••••••" {...field} />
+                        <Input
+                          type="password"
+                          placeholder="••••••••"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -244,7 +243,11 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
                     <FormItem>
                       <FormLabel>Confirm Password</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="••••••••" {...field} />
+                        <Input
+                          type="password"
+                          placeholder="••••••••"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -252,21 +255,26 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
                 />
               </>
             )}
-             <FormField
+            <FormField
               control={form.control}
               name="nationality"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Nationality</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a nationality" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {nationalities.map(nat => (
-                        <SelectItem key={nat} value={nat}>{nat}</SelectItem>
+                      {nationalities.map((nat) => (
+                        <SelectItem key={nat} value={nat}>
+                          {nat}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -280,7 +288,10 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Role</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a role" />
@@ -297,7 +308,11 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onOpenChange(false)}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>

@@ -5,8 +5,6 @@ import {
   GraduationCap,
   LayoutDashboard,
   Library,
-  Settings,
-  User as UserIcon,
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -15,7 +13,6 @@ import { usePathname } from 'next/navigation';
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -61,16 +58,6 @@ export default function AppSidebar({ user }: { user: User }) {
           ))}
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter className="border-t">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton className="w-full justify-start">
-              <Settings />
-              <span>Settings</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
     </Sidebar>
   );
 }
