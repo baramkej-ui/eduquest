@@ -2,18 +2,44 @@
 
 import AppHeader from '@/components/layout/app-header';
 import AppSidebar from '@/components/layout/app-sidebar';
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { useUser, useFirestore, useMemoFirebase, useAuth, useDoc } from '@/firebase';
-import { useRouter } from 'next/navigation';
-import { useEffect, createContext, useContext } from 'react';
-import type { User as AppUser } from '@/types/user';
 import GlobalLoader from '@/components/layout/global-loader';
-import { doc } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { doc, signOut } from 'firebase/auth';
+import { useAuth } from '@/firebase';
+import { useRouter } from 'next/navigation';
+import { createContext, useContext, useEffect } from 'react';
+import type { User as AppUser } from '@/types/user';
 
 const AppUserContext = createContext<AppUser | null>(null);
 
 export const useAppUser = () => useContext(AppUserContext);
+
+/**
+ * This inner layout component is rendered only after authentication and authorization are confirmed.
+ * It receives the validated appUser object as a prop and sets up the context and UI.
+ */
+function AuthenticatedLayout({
+  user,
+  children,
+}: {
+  user: AppUser;
+  children: React.ReactNode;
+}) {
+  return (
+    <AppUserContext.Provider value={user}>
+      <SidebarProvider>
+        <AppSidebar user={user} />
+        <SidebarInset className="flex flex-col">
+          <AppHeader />
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+            {children}
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
+    </AppUserContext.Provider>
+  );
+}
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user: firebaseUser, isUserLoading } = useUser();
@@ -22,7 +48,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   const userDocRef = useMemoFirebase(
-    () => (firestore && firebaseUser ? doc(firestore, 'users', firebaseUser.uid) : null),
+    () =>
+      firestore && firebaseUser
+        ? doc(firestore, 'users', firebaseUser.uid)
+        : null,
     [firestore, firebaseUser]
   );
 
@@ -30,15 +59,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isLoading = isUserLoading || isAppUserLoading;
 
-  // This effect handles redirection *after* loading is complete and auth state is determined.
+  // This effect handles redirection for unauthenticated or unauthorized users.
+  // It only runs when loading is complete.
   useEffect(() => {
     // Don't do anything while loading.
     if (isLoading) {
       return;
     }
 
-    // If loading is done, and there's no firebase user, or no app user, or the user is not an admin,
-    // then sign them out and redirect to login.
+    // If loading is done, and the user is not a valid admin, sign them out and redirect.
     if (!firebaseUser || !appUser || appUser.role !== 'admin') {
       if (auth) {
         signOut(auth); // Ensure any partial login state is cleared
@@ -47,30 +76,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [isLoading, firebaseUser, appUser, auth, router]);
 
-
   // 1. While loading, show a global loader.
+  // This prevents any UI flash or redirection logic from running prematurely.
   if (isLoading) {
     return <GlobalLoader />;
   }
 
-  // 2. After loading, if the user is a valid admin, render the layout.
+  // 2. After loading, if the user is a valid admin, render the authenticated layout.
+  // We explicitly check all conditions are met before rendering the children.
   if (firebaseUser && appUser && appUser.role === 'admin') {
-    return (
-      <AppUserContext.Provider value={appUser}>
-        <SidebarProvider>
-          <AppSidebar user={appUser} />
-          <SidebarInset className="flex flex-col">
-            <AppHeader />
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-              {children}
-            </div>
-          </SidebarInset>
-        </SidebarProvider>
-      </AppUserContext.Provider>
-    );
+    return <AuthenticatedLayout user={appUser}>{children}</AuthenticatedLayout>;
   }
 
-  // 3. If not loading and not a valid admin, show a loader until the useEffect above redirects.
-  // This prevents a flash of the dashboard or other content.
+  // 3. If loading is complete but the user is not a valid admin,
+  // show the loader until the useEffect above completes the redirection.
+  // This acts as a fallback to prevent rendering a broken UI.
   return <GlobalLoader />;
 }
