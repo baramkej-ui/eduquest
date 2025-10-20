@@ -29,19 +29,36 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { data: appUser, isLoading: isAppUserLoading } = useDoc<AppUser>(userDocRef);
   
   useEffect(() => {
-    // Wait until both Firebase Auth and Firestore loading are complete.
-    if (!isUserLoading && !isAppUserLoading) {
-      // If there's no Firebase user or no corresponding Firestore document after loading,
-      // redirect to the login page.
-      if (!firebaseUser || !appUser) {
-        router.push('/');
-      }
+    // Wait until initial auth check is complete.
+    if (isUserLoading) {
+      return;
+    }
+
+    // If auth check is done and there's no firebase user, redirect to login.
+    if (!firebaseUser) {
+      router.push('/');
+      return;
+    }
+
+    // If there is a firebase user, but we are still waiting for the appUser profile from Firestore,
+    // don't do anything yet. The loader below will handle the UI.
+    if (isAppUserLoading) {
+      return;
+    }
+
+    // If all loading is complete, and we have a firebaseUser but no appUser profile,
+    // it's an invalid state (e.g., deleted user), so redirect to login.
+    if (firebaseUser && !appUser) {
+      router.push('/');
     }
   }, [firebaseUser, appUser, isUserLoading, isAppUserLoading, router]);
 
-  // While either Firebase Auth is initializing or we are fetching the user's profile from Firestore,
-  // show a global loader.
-  if (isUserLoading || isAppUserLoading) {
+  // Show a global loader if:
+  // 1. We are checking the initial Firebase auth state.
+  // 2. We have a Firebase user but are still fetching their profile from Firestore.
+  const isLoading = isUserLoading || (firebaseUser && isAppUserLoading);
+
+  if (isLoading) {
     return <GlobalLoader />;
   }
 
