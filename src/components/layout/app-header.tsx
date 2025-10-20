@@ -33,6 +33,7 @@ export default function AppHeader() {
   const getInitials = (name?: string | null) => {
     if (!name) return 'U';
     const names = name.trim().split(' ').filter(Boolean);
+    if (names.length === 0) return 'U';
     if (names.length > 1) {
       return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
     }

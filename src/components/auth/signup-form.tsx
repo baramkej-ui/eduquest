@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore, setDocumentNonBlocking } from '@/firebase';
 import { Loader2 } from 'lucide-react';
-import { User } from '@/types/user';
+import type { User } from '@/types/user';
 
 const formSchema = z.object({
   displayName: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -73,6 +73,7 @@ export default function SignupForm() {
       await updateProfile(user, { displayName: values.displayName });
 
       const userDocRef = doc(firestore, 'users', user.uid);
+      // The user object in Firestore doesn't need its own ID field.
       const userData: Omit<User, 'id'> = {
         displayName: values.displayName,
         email: values.email,
