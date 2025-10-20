@@ -25,7 +25,7 @@ exports.createNewUser = onCall(async (request) => {
       displayName,
     });
 
-    // 3. Set Custom Claim for the new user's role
+    // 3. Set Custom Claim for the new user's role IMMEDIATELY after creation.
     await admin.auth().setCustomUserClaims(userRecord.uid, { role });
 
     // 4. Create Firestore Document for the new user
