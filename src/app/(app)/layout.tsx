@@ -4,12 +4,13 @@ import AppHeader from '@/components/layout/app-header';
 import AppSidebar from '@/components/layout/app-sidebar';
 import GlobalLoader from '@/components/layout/global-loader';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import { doc, signOut } from 'firebase/auth';
+import { useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
+import { signOut } from 'firebase/auth';
 import { useAuth } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { createContext, useContext, useEffect } from 'react';
 import type { User as AppUser } from '@/types/user';
+import { doc } from 'firebase/firestore';
 
 const AppUserContext = createContext<AppUser | null>(null);
 
@@ -59,19 +60,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isLoading = isUserLoading || isAppUserLoading;
 
-  // This effect handles redirection for unauthenticated or unauthorized users.
-  // It only runs when loading is complete.
   useEffect(() => {
-    // Don't do anything while loading.
+    // Wait until all loading is finished before making any decisions.
     if (isLoading) {
       return;
     }
 
-    // If loading is done, and the user is not a valid admin, sign them out and redirect.
-    if (!firebaseUser || !appUser || appUser.role !== 'admin') {
+    // If loading is done, and we have a user but they are not a valid admin,
+    // sign them out and redirect to the login page.
+    if (firebaseUser && (!appUser || appUser.role !== 'admin')) {
       if (auth) {
-        signOut(auth); // Ensure any partial login state is cleared
+        signOut(auth);
       }
+      router.push('/');
+    }
+
+    // If loading is done and there's no firebase user at all, redirect.
+    if (!firebaseUser) {
       router.push('/');
     }
   }, [isLoading, firebaseUser, appUser, auth, router]);
