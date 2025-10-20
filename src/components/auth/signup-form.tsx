@@ -73,7 +73,7 @@ export default function SignupForm() {
       await updateProfile(user, { displayName: values.displayName });
 
       const userDocRef = doc(firestore, 'users', user.uid);
-      // The user object in Firestore doesn't need its own ID field.
+      
       const userData: Omit<User, 'id'> = {
         displayName: values.displayName,
         email: values.email,

@@ -4,13 +4,12 @@ import AppHeader from '@/components/layout/app-header';
 import AppSidebar from '@/components/layout/app-sidebar';
 import GlobalLoader from '@/components/layout/global-loader';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useDoc, useFirestore, useUser, useMemoFirebase, useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { createContext, useContext, useEffect } from 'react';
 import type { User as AppUser } from '@/types/user';
 import { doc } from 'firebase/firestore';
-import { useAuth } from '@/firebase';
 
 const AppUserContext = createContext<AppUser | null>(null);
 
