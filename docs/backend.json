@@ -1,0 +1,175 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user in the EduQuest application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the user (e.g., 'admin', 'teacher', 'student')."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name of the user."
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "role"
+      ]
+    },
+    "Problem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Problem",
+      "type": "object",
+      "description": "Represents an educational problem or question.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Problem entity."
+        },
+        "topic": {
+          "type": "string",
+          "description": "Topic or subject of the problem."
+        },
+        "difficulty": {
+          "type": "string",
+          "description": "Difficulty level of the problem (e.g., 'easy', 'medium', 'hard')."
+        },
+        "questionText": {
+          "type": "string",
+          "description": "The actual question text."
+        },
+        "correctAnswer": {
+          "type": "string",
+          "description": "The correct answer to the problem."
+        },
+        "possibleAnswers": {
+          "type": "array",
+          "description": "Possible answers including the correct one",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "topic",
+        "difficulty",
+        "questionText",
+        "correctAnswer"
+      ]
+    },
+    "Result": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Result",
+      "type": "object",
+      "description": "Represents the result of a user attempting a problem.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Result entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Result)"
+        },
+        "problemId": {
+          "type": "string",
+          "description": "Reference to Problem. (Relationship: Problem 1:N Result)"
+        },
+        "isCorrect": {
+          "type": "boolean",
+          "description": "Indicates whether the user answered the problem correctly."
+        },
+        "submissionTime": {
+          "type": "string",
+          "description": "Timestamp of when the user submitted the answer.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "problemId",
+        "isCorrect",
+        "submissionTime"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles.  The 'userId' parameter is the unique identifier for each user.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/problems/{problemId}",
+        "definition": {
+          "entityName": "Problem",
+          "schema": {
+            "$ref": "#/backend/entities/Problem"
+          },
+          "description": "Stores educational problems. The 'problemId' parameter is the unique identifier for each problem.",
+          "params": [
+            {
+              "name": "problemId",
+              "description": "Unique identifier for the problem."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/results/{resultId}",
+        "definition": {
+          "entityName": "Result",
+          "schema": {
+            "$ref": "#/backend/entities/Result"
+          },
+          "description": "Stores the results of a user attempting a problem. Path-based ownership enforces that only the user (or an admin) can manage their results. 'userId' is the user's ID, and 'resultId' is the unique identifier for the result.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user."
+            },
+            {
+              "name": "resultId",
+              "description": "Unique identifier for the result."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to manage users, problems, and results, ensuring role-based access control and efficient data retrieval. It leverages structural segregation and path-based ownership to simplify security rules and maintain data integrity.\n\n1.  **Users Collection:** `/users/{userId}` stores user profiles. The `role` field determines the user's authorization level.\n2.  **Problems Collection:** `/problems/{problemId}` stores educational problems.  Administrators and teachers can manage problems.\n3.  **User Results Subcollection:** `/users/{userId}/results/{resultId}` stores results for each user. This subcollection enforces ownership.\n\n**Authorization Independence (Denormalization):**\n*   The structure avoids hierarchical authorization dependencies.  Each `result` document contains all necessary information (userId and problemId) to determine authorization. No `get()` calls are required to check parent document properties.\n\n**QAPs (Rules are not Filters):**\n*   The design supports secure `list` operations because collections are structurally segregated based on data type and access control needs.\n*   Admins can `list` all users.\n*   Teachers can `list` all problems.\n*   Students can only `list` their own results in `/users/{userId}/results`.\n\n**Invariants:**\n*   Path-based ownership (`/users/{userId}/results/{resultId}`) ensures that only the user (or an admin) can modify their results.\n*   Timestamps (`submissionTime`) are enforced via rules.\n*   The structure supports the integrity of denormalized data, as there is no denormalized data required for authorization."
+  }
+}

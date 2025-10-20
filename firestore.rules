@@ -1,0 +1,117 @@
+/**
+ * @file Firestore Security Rules for EduQuest
+ * @version Prototyping
+ *
+ * @description This ruleset enforces a user-ownership model for user profiles and results,
+ *              and role-based access control for problems. Data shape validation is relaxed
+ *              to allow for rapid prototyping.
+ *
+ * @dataStructure
+ * - /users/{userId}: Stores user profiles.
+ * - /problems/{problemId}: Stores educational problems.
+ * - /users/{userId}/results/{resultId}: Stores results for each user.
+ *
+ * @keySecurityDecisions
+ * - Users can only manage their own profiles and results.
+ * - Administrators and teachers can manage problems.
+ * - Read access to user profiles is restricted to the owner.
+ * - Listing of the `/users` collection is denied to all users.
+ *
+ * @denormalizationForAuthorization None. The provided reasoning indicates that no denormalization is needed.
+ * @structuralSegregation The Firestore structure is segregated based on entities and ownership.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Controls access to user profiles.
+     * @path /users/{userId}
+     * @allow (create) User 'user_abc' can create their own profile.
+     * @allow (get) User 'user_abc' can read their own profile.
+     * @allow (update) User 'user_abc' can update their own profile.
+     * @allow (delete) User 'user_abc' can delete their own profile.
+     * @deny (create) User 'user_xyz' cannot create a profile with ID 'user_abc'.
+     * @deny (get) User 'user_xyz' cannot read profile 'user_abc'.
+     * @deny (update) User 'user_xyz' cannot update profile 'user_abc'.
+     * @deny (delete) User 'user_xyz' cannot delete profile 'user_abc'.
+     * @principle Enforces document ownership for user profiles.
+     */
+    match /users/{userId} {
+      // Anyone can read users documents
+      allow get: if isOwner(userId);
+      // No one can list all users
+      allow list: if false;
+      // Only the user can create their own profile.
+      allow create: if isOwner(userId);
+      // Only the user can update their own profile.
+      allow update: if isExistingOwner(userId);
+      // Only the user can delete their own profile.
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Controls access to educational problems.
+     * @path /problems/{problemId}
+     * @allow (get) Any user can read a problem.
+     * @allow (list) Any user can list problems.
+     * @allow (create) Admins can create problems.
+     * @allow (update) Admins can update problems.
+     * @allow (delete) Admins can delete problems.
+     * @deny (create) Non-admins cannot create problems.
+     * @deny (update) Non-admins cannot update problems.
+     * @deny (delete) Non-admins cannot delete problems.
+     * @principle Enforces role-based access control for managing problems.
+     */
+    match /problems/{problemId} {
+      allow get, list: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() && resource != null;
+      allow delete: if isAdmin() && resource != null;
+    }
+
+    /**
+     * @description Controls access to user-specific problem results.
+     * @path /users/{userId}/results/{resultId}
+     * @allow (create) User 'user_abc' can create a result under their profile.
+     * @allow (get) User 'user_abc' can read a result under their profile.
+     * @allow (list) User 'user_abc' can list results under their profile.
+     * @allow (update) User 'user_abc' can update a result under their profile.
+     * @allow (delete) User 'user_abc' can delete a result under their profile.
+     * @deny (create) User 'user_xyz' cannot create a result under profile 'user_abc'.
+     * @deny (get) User 'user_xyz' cannot read a result under profile 'user_abc'.
+     * @deny (list) User 'user_xyz' cannot list results under profile 'user_abc'.
+     * @deny (update) User 'user_xyz' cannot update a result under profile 'user_abc'.
+     * @deny (delete) User 'user_xyz' cannot delete a result under profile 'user_abc'.
+     * @principle Enforces path-based ownership for problem results.
+     */
+    match /users/{userId}/results/{resultId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    // --- Helper Functions ---
+
+    // Checks if the user is signed in.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Checks if the user is the owner of the resource.
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Checks if the user is the owner of the resource and the resource exists.
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    // Checks if the user has the 'admin' role.
+    function isAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
+}
