@@ -1,9 +1,9 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useCollection } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
-import { useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
 import { useAppUser } from '@/app/(app)/layout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -34,7 +34,7 @@ export default function UsersPage() {
   const usersQuery = useMemoFirebase(
     () =>
       firestore && isAdmin
-        ? query(collection(firestore, 'users'))
+        ? query(collection(firestore, 'users'), where('role', '==', 'admin'))
         : null,
     [firestore, isAdmin]
   );
@@ -53,17 +53,17 @@ export default function UsersPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight font-headline">
-          User Management
+          Administrator Management
         </h1>
         <p className="text-muted-foreground">
-          View and manage all users in the system.
+          View and manage all administrators in the system.
         </p>
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>User Roster</CardTitle>
+          <CardTitle>Administrator Roster</CardTitle>
           <CardDescription>
-            A list of all registered users.
+            A list of all registered administrators.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -134,7 +134,7 @@ export default function UsersPage() {
                  {!isLoading && isAdmin && users?.length === 0 && (
                     <TableRow>
                         <TableCell colSpan={3} className="text-center text-muted-foreground">
-                            No users found.
+                            No administrators found.
                         </TableCell>
                     </TableRow>
                  )}
