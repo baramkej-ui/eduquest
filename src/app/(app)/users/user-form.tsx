@@ -42,6 +42,17 @@ import type { WithId } from '@/firebase/firestore/use-collection';
 import type { User as AppUser, UserRole } from '@/types/user';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 
+const nationalities = [
+  'S. Korea',
+  'Japan',
+  'China',
+  'Taiwan',
+  'Mongol',
+  'Thailand',
+  'Turkiye',
+  'Saudi Arabia',
+] as const;
+
 const formSchema = z
   .object({
     displayName: z.string().min(2, { message: 'Display name is required' }),
@@ -49,7 +60,7 @@ const formSchema = z
     role: z.enum(['admin', 'teacher', 'student']),
     password: z.string().optional(),
     confirmPassword: z.string().optional(),
-    nationality: z.string().min(2, { message: 'Nationality is required' }),
+    nationality: z.enum(nationalities),
   })
   .refine(
     (data) => {
@@ -104,7 +115,7 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
       displayName: user?.displayName || '',
       email: user?.email || '',
       role: user?.role || 'student',
-      nationality: user?.nationality || '',
+      nationality: user?.nationality || 'S. Korea',
     },
   });
 
@@ -243,9 +254,18 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Nationality</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g. South Korean" {...field} />
-                  </FormControl>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a nationality" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {nationalities.map(nat => (
+                        <SelectItem key={nat} value={nat}>{nat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
