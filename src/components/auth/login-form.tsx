@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuth } from '@/firebase';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }),
@@ -34,7 +34,6 @@ export default function LoginForm() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const auth = useAuth();
-  const firestore = useFirestore();
 
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -47,7 +46,7 @@ export default function LoginForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setLoading(true);
-    if (!auth || !firestore) {
+    if (!auth) {
       toast({
         variant: 'destructive',
         title: 'Login Failed',
@@ -64,14 +63,10 @@ export default function LoginForm() {
         values.password
       );
 
-      // Role checking is handled centrally in AppLayout.
-      // On successful login, the onAuthStateChanged listener in FirebaseProvider
-      // will trigger, and AppLayout will perform the necessary checks and redirects.
-      toast({
-        title: 'Login Successful',
-        description: `Welcome back! Redirecting to dashboard...`,
-      });
+      // Role checking and redirection is handled centrally in AppLayout.
+      // We just need to navigate to a protected route and let the layout handle the rest.
       router.push('/dashboard');
+
     } catch (error: any) {
       console.error(error);
       const isWrongPassword = error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found';
@@ -82,7 +77,6 @@ export default function LoginForm() {
           ? 'Invalid email or password.'
           : 'An unexpected error occurred. Please try again.',
       });
-    } finally {
       setLoading(false);
     }
   }

@@ -5,7 +5,7 @@ import AppSidebar from '@/components/layout/app-sidebar';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { useUser, useFirestore, useMemoFirebase, useAuth, useDoc } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { useEffect, createContext, useContext } from 'react';
+import { useEffect, createContext, useContext, useMemo } from 'react';
 import type { User as AppUser } from '@/types/user';
 import GlobalLoader from '@/components/layout/global-loader';
 import { doc } from 'firebase/firestore';
@@ -29,22 +29,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   );
   
   const { data: appUser, isLoading: isAppUserLoading } = useDoc<AppUser>(userDocRef);
-  
+
+  // Derive states based on loading and data
+  const isLoading = isUserLoading || isAppUserLoading;
+  const isLoggedIn = !isLoading && !!firebaseUser;
+  const isAdmin = isLoggedIn && !!appUser && appUser.role === 'admin';
+
   useEffect(() => {
-    // Wait until both Firebase Auth and Firestore profile loading are complete.
-    if (isUserLoading || isAppUserLoading) {
+    // Don't do anything while loading
+    if (isLoading) {
       return;
     }
 
-    // After loading, if there's no Firebase user, they are not logged in. Redirect.
+    // If loading is finished, but user is not logged in, redirect to login
     if (!firebaseUser) {
       router.push('/');
       return;
     }
 
-    // If a Firebase user exists but their Firestore document (`appUser`) doesn't,
-    // or if their role is not 'admin', they are not authorized.
-    if (!appUser || appUser.role !== 'admin') {
+    // If user is logged in, but is not an admin (no profile or wrong role)
+    if (firebaseUser && (!appUser || appUser.role !== 'admin')) {
       if (auth) {
         signOut(auth).then(() => {
           router.push('/');
@@ -53,19 +57,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // All checks passed, the user is an authenticated admin.
-  }, [firebaseUser, appUser, isUserLoading, isAppUserLoading, auth, router]);
+  }, [isLoading, firebaseUser, appUser, auth, router]);
 
-  // Show a global loader while either auth state or user profile is loading.
-  const isLoading = isUserLoading || isAppUserLoading;
-
-  if (isLoading) {
-    return <GlobalLoader />;
-  }
-
-  // If loading is complete but authentication checks failed (and a redirect is in progress),
-  // continue showing the loader to prevent a flash of the unauthorized layout.
-  if (!firebaseUser || !appUser || appUser.role !== 'admin') {
+  // Show a global loader while loading
+  // Or if a redirect is in progress (isLoggedIn is false, or isAdmin is false after login attempt)
+  if (isLoading || !isLoggedIn || !isAdmin) {
     return <GlobalLoader />;
   }
   
