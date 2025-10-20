@@ -31,60 +31,45 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { data: appUser, isLoading: isAppUserLoading } = useDoc<AppUser>(userDocRef);
   
   useEffect(() => {
-    // If auth state is still loading, or we have an auth user but are still fetching their
-    // firestore profile, we don't do anything yet. The loading screen will be shown.
-    if (isUserLoading || (firebaseUser && isAppUserLoading)) {
+    // Wait until both Firebase Auth and Firestore profile loading are complete.
+    if (isUserLoading || isAppUserLoading) {
       return;
     }
 
-    // After all loading is complete, if there is no firebase user, they are not logged in.
-    // Redirect to the login page.
+    // After loading, if there's no Firebase user, they are not logged in. Redirect.
     if (!firebaseUser) {
       router.push('/');
       return;
     }
 
-    // If we have a firebase user and their firestore profile (`appUser`),
-    // check their role.
-    if (appUser) {
-      if (appUser.role !== 'admin') {
-        // If the user is not an admin, log them out and redirect.
-        if (auth) {
-          signOut(auth).then(() => {
-            router.push('/');
-          });
-        }
+    // If a Firebase user exists but their Firestore document (`appUser`) doesn't,
+    // or if their role is not 'admin', they are not authorized.
+    if (!appUser || appUser.role !== 'admin') {
+      if (auth) {
+        signOut(auth).then(() => {
+          router.push('/');
+        });
       }
-      // If the user is an admin, they can stay.
-    } else if (firebaseUser && !isAppUserLoading) {
-        // Edge case: Firebase auth user exists, but Firestore doc doesn't.
-        // This could happen if doc creation failed. Log them out.
-        if (auth) {
-          signOut(auth).then(() => {
-            router.push('/');
-          });
-        }
+      return;
     }
-  }, [firebaseUser, isUserLoading, appUser, isAppUserLoading, auth, router]);
 
-  // Combined loading state:
-  // 1. Initial Firebase Auth check is running.
-  // 2. We have a Firebase user, but we are still waiting for their profile from Firestore.
-  const isLoading = isUserLoading || (firebaseUser && isAppUserLoading);
+    // All checks passed, the user is an authenticated admin.
+  }, [firebaseUser, appUser, isUserLoading, isAppUserLoading, auth, router]);
+
+  // Show a global loader while either auth state or user profile is loading.
+  const isLoading = isUserLoading || isAppUserLoading;
 
   if (isLoading) {
     return <GlobalLoader />;
   }
 
-  // At this point, loading is complete.
-  // If we don't have a firebaseUser, a redirect to '/' is already in progress.
-  // If we have a firebaseUser but no appUser (or they aren't an admin), a logout/redirect
-  // is in progress. Showing the loader prevents a layout flash during the redirect.
+  // If loading is complete but authentication checks failed (and a redirect is in progress),
+  // continue showing the loader to prevent a flash of the unauthorized layout.
   if (!firebaseUser || !appUser || appUser.role !== 'admin') {
     return <GlobalLoader />;
   }
   
-  // All checks passed, user is an authenticated admin.
+  // All checks passed, render the authenticated admin layout.
   return (
     <AppUserContext.Provider value={appUser}>
       <SidebarProvider>

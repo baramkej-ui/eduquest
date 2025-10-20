@@ -72,11 +72,11 @@ export default function SignupForm() {
       await updateProfile(user, { displayName: values.displayName });
 
       const userDocRef = doc(firestore, 'users', user.uid);
+      // The user's ID is the doc ID, so no need to store it inside the document itself.
       const userData = {
-        id: user.uid,
         displayName: values.displayName,
         email: values.email,
-        role: 'admin',
+        role: 'admin', // Default role for self-signup is admin
       };
 
       setDocumentNonBlocking(userDocRef, userData, { merge: true });

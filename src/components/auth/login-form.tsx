@@ -19,11 +19,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useAuth, useFirestore } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
-import type { User as AppUser } from '@/types/user';
-
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }),
@@ -61,46 +58,23 @@ export default function LoginForm() {
     }
 
     try {
-      const userCredential = await signInWithEmailAndPassword(
+      await signInWithEmailAndPassword(
         auth,
         values.email,
         values.password
       );
 
-      // After successful sign-in, check the user's role from Firestore.
-      const userDocRef = doc(firestore, 'users', userCredential.user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (userDoc.exists()) {
-        const appUser = userDoc.data() as AppUser;
-        if (appUser.role === 'admin') {
-          // If the user is an admin, proceed to the dashboard.
-          toast({
-            title: 'Login Successful',
-            description: `Welcome back, ${appUser.displayName}!`,
-          });
-          router.push('/dashboard');
-        } else {
-          // If the user is not an admin, deny access.
-          await signOut(auth); // Sign the user out.
-          toast({
-            variant: 'destructive',
-            title: 'Access Denied',
-            description: 'You do not have permission to access the admin dashboard.',
-          });
-        }
-      } else {
-        // This case should ideally not happen if user docs are created on signup.
-        await signOut(auth);
-        toast({
-          variant: 'destructive',
-          title: 'Login Failed',
-          description: 'User profile not found.',
-        });
-      }
+      // Role checking is handled centrally in AppLayout.
+      // On successful login, the onAuthStateChanged listener in FirebaseProvider
+      // will trigger, and AppLayout will perform the necessary checks and redirects.
+      toast({
+        title: 'Login Successful',
+        description: `Welcome back! Redirecting to dashboard...`,
+      });
+      router.push('/dashboard');
     } catch (error: any) {
       console.error(error);
-      const isWrongPassword = error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential';
+      const isWrongPassword = error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found';
       toast({
         variant: 'destructive',
         title: 'Login Failed',
