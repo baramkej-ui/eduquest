@@ -11,18 +11,20 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { useAuth } from '@/hooks/use-auth';
-import { auth } from '@/lib/firebase/config';
+import { useUser, useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function AppHeader() {
-  const { user } = useAuth();
+  const { user } = useUser();
+  const auth = useAuth();
   const router = useRouter();
 
   const handleLogout = async () => {
-    await signOut(auth);
+    if(auth) {
+      await signOut(auth);
+    }
     router.push('/');
   };
 

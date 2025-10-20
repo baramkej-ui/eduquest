@@ -20,10 +20,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import type { User } from '@/providers/auth-provider';
+import type { User } from '@/types/user';
 import { signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase/config';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/firebase';
 
 const adminNav = [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }];
 
@@ -38,6 +38,7 @@ export default function AppSidebar({ user }: { user: User }) {
   const pathname = usePathname();
   const router = useRouter();
   const { toast } = useToast();
+  const auth = useAuth();
 
   const navItems =
     user.role === 'admin'
@@ -48,7 +49,9 @@ export default function AppSidebar({ user }: { user: User }) {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      if (auth) {
+        await signOut(auth);
+      }
       toast({ title: 'Logged out successfully' });
       router.push('/');
     } catch (error) {

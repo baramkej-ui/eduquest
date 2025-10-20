@@ -1,3 +1,5 @@
+'use client';
+import { useMemo } from 'react';
 import { ProblemCard } from '@/components/problems/problem-card';
 import {
   Tabs,
@@ -5,51 +7,55 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
+import { useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
+import type { Problem } from '@/types/problem';
+import { Skeleton } from '@/components/ui/skeleton';
 
-const problems = {
-  grammar: [
-    {
-      id: 'g1',
-      type: 'multiple-choice',
-      question: 'He ___ to the store every day.',
-      options: ['go', 'goes', 'is going', 'went'],
-      answer: 'goes',
-    },
-    {
-      id: 'g2',
-      type: 'fill-in-the-blank',
-      question: 'I have ___ my homework.',
-      answer: 'done',
-    },
-  ],
-  vocabulary: [
-    {
-      id: 'v1',
-      type: 'definition',
-      question: 'What is the definition of "ubiquitous"?',
-      answer: 'present, appearing, or found everywhere.',
-    },
-     {
-      id: 'v2',
-      type: 'multiple-choice',
-      question: 'Which word is a synonym for "happy"?',
-      options: ['sad', 'joyful', 'angry', 'tired'],
-      answer: 'joyful',
-    },
-  ],
-  reading: [
-    {
-      id: 'r1',
-      type: 'comprehension',
-      passage:
-        'The quick brown fox jumps over the lazy dog. This sentence is a pangram.',
-      question: 'What is special about the sentence?',
-      answer: 'It contains all letters of the alphabet.',
-    },
-  ],
-};
+function ProblemList({ topic }: { topic: string }) {
+  const firestore = useFirestore();
+  const problemsQuery = useMemoFirebase(
+    () =>
+      firestore
+        ? query(collection(firestore, 'problems'), where('topic', '==', topic))
+        : null,
+    [firestore, topic]
+  );
+  const { data: problems, isLoading } = useCollection<Problem>(problemsQuery);
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="space-y-4 rounded-lg border p-6">
+            <Skeleton className="h-5 w-3/4" />
+            <Skeleton className="h-4 w-1/4" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      {problems?.map((p) => (
+        <ProblemCard key={p.id} problem={p} />
+      ))}
+       {problems?.length === 0 && (
+          <p className="text-muted-foreground col-span-full">
+            No {topic} problems found.
+          </p>
+        )}
+    </div>
+  );
+}
+
 
 export default function ProblemsPage() {
+  const topics = ['grammar', 'vocabulary', 'reading'];
+
   return (
     <div className="space-y-6">
       <div>
@@ -62,31 +68,17 @@ export default function ProblemsPage() {
       </div>
       <Tabs defaultValue="grammar" className="w-full">
         <TabsList className="grid w-full grid-cols-3 md:w-[400px]">
-          <TabsTrigger value="grammar">Grammar</TabsTrigger>
-          <TabsTrigger value="vocabulary">Vocabulary</TabsTrigger>
-          <TabsTrigger value="reading">Reading</TabsTrigger>
+          {topics.map((topic) => (
+            <TabsTrigger key={topic} value={topic} className="capitalize">
+              {topic}
+            </TabsTrigger>
+          ))}
         </TabsList>
-        <TabsContent value="grammar" className="mt-6">
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {problems.grammar.map((p) => (
-              <ProblemCard key={p.id} problem={p} />
-            ))}
-          </div>
-        </TabsContent>
-        <TabsContent value="vocabulary" className="mt-6">
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {problems.vocabulary.map((p) => (
-              <ProblemCard key={p.id} problem={p} />
-            ))}
-          </div>
-        </TabsContent>
-        <TabsContent value="reading" className="mt-6">
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {problems.reading.map((p) => (
-              <ProblemCard key={p.id} problem={p} />
-            ))}
-          </div>
-        </TabsContent>
+        {topics.map((topic) => (
+          <TabsContent key={topic} value={topic} className="mt-6">
+            <ProblemList topic={topic} />
+          </TabsContent>
+        ))}
       </Tabs>
     </div>
   );

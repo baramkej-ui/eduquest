@@ -33,6 +33,9 @@ import { Loader2, Wand2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
+import { addDocumentNonBlocking, useFirestore } from '@/firebase';
+import { collection } from 'firebase/firestore';
+import type { Problem } from '@/types/problem';
 
 const formSchema = z.object({
   topic: z.string().min(2, { message: 'Topic is required.' }),
@@ -44,6 +47,7 @@ export function ProblemGenerator() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [generatedProblems, setGeneratedProblems] = useState<string[]>([]);
+  const firestore = useFirestore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -61,9 +65,27 @@ export function ProblemGenerator() {
       const result = await generateEnglishProblems(values);
       if (result && result.problems) {
         setGeneratedProblems(result.problems);
+
+        if (firestore) {
+          const problemsCollection = collection(firestore, 'problems');
+          result.problems.forEach((problemText) => {
+            const newProblem: Omit<Problem, 'id'> = {
+              topic: values.topic,
+              difficulty: values.difficulty,
+              questionText: problemText,
+              // These are placeholders, a more robust solution would
+              // be another AI call to get answers and options
+              correctAnswer: 'TBD',
+              possibleAnswers: [],
+              type: 'fill-in-the-blank' 
+            };
+            addDocumentNonBlocking(problemsCollection, newProblem);
+          });
+        }
+
         toast({
-          title: 'Problems Generated',
-          description: `Successfully generated ${result.problems.length} problems.`,
+          title: 'Problems Generated & Saved',
+          description: `Successfully generated and saved ${result.problems.length} problems.`,
         });
       } else {
         throw new Error('AI did not return any problems.');
@@ -90,7 +112,7 @@ export function ProblemGenerator() {
               Problem Generator
             </CardTitle>
             <CardDescription>
-              Use AI to generate new English problems.
+              Use AI to generate new English problems and save them to Firestore.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -101,9 +123,21 @@ export function ProblemGenerator() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Topic</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., grammar, tenses" {...field} />
-                    </FormControl>
+                     <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select topic" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="grammar">Grammar</SelectItem>
+                        <SelectItem value="vocabulary">Vocabulary</SelectItem>
+                        <SelectItem value="reading">Reading</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -158,7 +192,7 @@ export function ProblemGenerator() {
               )}
             </div>
             <Button type="submit" disabled={loading}>
-              Generate
+              Generate & Save
             </Button>
           </CardFooter>
         </form>
@@ -167,7 +201,7 @@ export function ProblemGenerator() {
         <>
           <Separator />
           <CardContent className="pt-6">
-            <h3 className="mb-4 font-semibold">Generated Problems:</h3>
+            <h3 className="mb-4 font-semibold">Generated Problems (also saved to Firestore):</h3>
             <ul className="space-y-3 list-decimal list-inside rounded-lg bg-muted/50 p-4">
               {generatedProblems.map((problem, index) => (
                 <li key={index} className="text-sm">

@@ -27,11 +27,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { auth, db } from '@/lib/firebase/config';
+import { useAuth, useFirestore, setDocumentNonBlocking } from '@/firebase';
 import { Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
-  name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
+  displayName: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Please enter a valid email.' }),
   password: z
     .string()
@@ -43,11 +43,14 @@ export default function SignupForm() {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const auth = useAuth();
+  const firestore = useFirestore();
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: '',
+      displayName: '',
       email: '',
       password: '',
       role: 'student',
@@ -56,6 +59,17 @@ export default function SignupForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setLoading(true);
+
+    if (!auth || !firestore) {
+      toast({
+        variant: 'destructive',
+        title: 'Signup Failed',
+        description: 'Firebase not initialized. Please try again later.',
+      });
+      setLoading(false);
+      return;
+    }
+
     try {
       const userCredential = await createUserWithEmailAndPassword(
         auth,
@@ -64,14 +78,18 @@ export default function SignupForm() {
       );
       const user = userCredential.user;
 
-      await updateProfile(user, { displayName: values.name });
+      await updateProfile(user, { displayName: values.displayName });
 
-      await setDoc(doc(db, 'users', user.uid), {
+      const userDocRef = doc(firestore, 'users', user.uid);
+      const userData = {
         uid: user.uid,
-        name: values.name,
+        displayName: values.displayName,
         email: values.email,
         role: values.role,
-      });
+      };
+
+      setDocumentNonBlocking(userDocRef, userData, { merge: true });
+
 
       toast({
         title: 'Account Created',
@@ -97,7 +115,7 @@ export default function SignupForm() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
             control={form.control}
-            name="name"
+            name="displayName"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Name</FormLabel>

@@ -1,3 +1,9 @@
+'use client';
+
+import { useMemo } from 'react';
+import { useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -17,47 +23,65 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { Skeleton } from '@/components/ui/skeleton';
+import type { User } from '@/providers/auth-provider';
 
-const students = [
-  {
-    name: 'Alice Johnson',
-    email: 'alice@example.com',
-    avatar: PlaceHolderImages.find((i) => i.id === 'student-avatar-1')
-      ?.imageUrl,
-    progress: 75,
-    lastActivity: '2 hours ago',
-    accuracy: 88,
-  },
-  {
-    name: 'Bob Williams',
-    email: 'bob@example.com',
-    avatar: PlaceHolderImages.find((i) => i.id === 'student-avatar-2')
-      ?.imageUrl,
-    progress: 45,
-    lastActivity: '1 day ago',
-    accuracy: 65,
-  },
-  {
-    name: 'Charlie Brown',
-    email: 'charlie@example.com',
-    avatar: PlaceHolderImages.find((i) => i.id === 'student-avatar-3')
-      ?.imageUrl,
-    progress: 92,
-    lastActivity: '30 minutes ago',
-    accuracy: 95,
-  },
-  {
-    name: 'Diana Miller',
-    email: 'diana@example.com',
-    avatar: PlaceHolderImages.find((i) => i.id === 'student-avatar-4')
-      ?.imageUrl,
-    progress: 20,
-    lastActivity: '3 days ago',
-    accuracy: 50,
-  },
-];
+// This component can be extended to fetch and calculate real progress
+function StudentProgress({ userId }: { userId: string }) {
+  // Mock data for now
+  const progress = Math.floor(Math.random() * 100);
+  const accuracy = Math.floor(Math.random() * 40) + 60;
+  const lastActivity = `${Math.floor(Math.random() * 59) + 1} minutes ago`;
+
+  return (
+    <>
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <Progress value={progress} className="w-24" />
+          <span className="text-sm text-muted-foreground">{progress}%</span>
+        </div>
+      </TableCell>
+      <TableCell className="text-center">
+        <Badge
+          variant={
+            accuracy > 80
+              ? 'default'
+              : accuracy > 60
+              ? 'outline'
+              : 'destructive'
+          }
+        >
+          {accuracy}%
+        </Badge>
+      </TableCell>
+      <TableCell className="text-right">{lastActivity}</TableCell>
+    </>
+  );
+}
 
 export default function StudentsPage() {
+  const firestore = useFirestore();
+
+  const studentsQuery = useMemoFirebase(
+    () =>
+      firestore
+        ? query(collection(firestore, 'users'), where('role', '==', 'student'))
+        : null,
+    [firestore]
+  );
+
+  const { data: students, isLoading } = useCollection<
+    Omit<User, 'role' | 'uid'>
+  >(studentsQuery);
+
+  const getAvatar = (index: number) => {
+    const avatarId = `student-avatar-${(index % 4) + 1}`;
+    return (
+      PlaceHolderImages.find((i) => i.id === avatarId)?.imageUrl ||
+      'https://picsum.photos/seed/default/100/100'
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -86,48 +110,54 @@ export default function StudentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {students.map((student) => (
-                <TableRow key={student.email}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarImage src={student.avatar} alt={student.name} />
-                        <AvatarFallback>{student.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium">{student.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {student.email}
+              {isLoading &&
+                Array.from({ length: 4 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-10 w-10 rounded-full" />
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-[150px]" />
+                          <Skeleton className="h-3 w-[200px]" />
                         </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Progress value={student.progress} className="w-24" />
-                      <span className="text-sm text-muted-foreground">
-                        {student.progress}%
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge
-                      variant={
-                        student.accuracy > 80
-                          ? 'default'
-                          : student.accuracy > 60
-                          ? 'outline'
-                          : 'destructive'
-                      }
-                    >
-                      {student.accuracy}%
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {student.lastActivity}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Skeleton className="h-6 w-12 mx-auto" />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Skeleton className="h-4 w-20 ml-auto" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              {!isLoading &&
+                students?.map((student, index) => (
+                  <TableRow key={student.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar>
+                          <AvatarImage
+                            src={getAvatar(index)}
+                            alt={student.displayName || 'student'}
+                          />
+                          <AvatarFallback>
+                            {student.displayName?.charAt(0) || 'S'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">{student.displayName}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {student.email}
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <StudentProgress userId={student.id} />
+                  </TableRow>
+                ))}
             </TableBody>
           </Table>
         </CardContent>

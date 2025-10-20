@@ -1,8 +1,6 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -20,9 +18,11 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { auth, db } from '@/lib/firebase/config';
-import type { UserRole } from '@/providers/auth-provider';
 import { Loader2 } from 'lucide-react';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { useAuth, useFirestore } from '@/firebase';
+import type { UserRole } from '@/types/user';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }),
@@ -35,6 +35,8 @@ export default function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const auth = useAuth();
+  const firestore = useFirestore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -46,6 +48,16 @@ export default function LoginForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setLoading(true);
+    if (!auth || !firestore) {
+      toast({
+        variant: 'destructive',
+        title: 'Login Failed',
+        description: 'Firebase not initialized. Please try again later.',
+      });
+      setLoading(false);
+      return;
+    }
+
     try {
       const userCredential = await signInWithEmailAndPassword(
         auth,
@@ -54,7 +66,7 @@ export default function LoginForm() {
       );
       const user = userCredential.user;
 
-      const userDocRef = doc(db, 'users', user.uid);
+      const userDocRef = doc(firestore, 'users', user.uid);
       const userDoc = await getDoc(userDocRef);
 
       let role: UserRole = 'student'; // Default role

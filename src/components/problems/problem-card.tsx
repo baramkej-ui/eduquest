@@ -21,17 +21,9 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, XCircle } from 'lucide-react';
 import { useState } from 'react';
+import type { Problem } from '@/types/problem';
 
-type Problem = {
-  id: string;
-  type: string;
-  question: string;
-  options?: string[];
-  answer: string;
-  passage?: string;
-};
-
-export function ProblemCard({ problem }: { problem: Problem }) {
+export function ProblemCard({ problem }: { problem: Problem & {id: string} }) {
   const [userAnswer, setUserAnswer] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -46,7 +38,7 @@ export function ProblemCard({ problem }: { problem: Problem }) {
       return;
     }
     const correct =
-      userAnswer.toLowerCase().trim() === problem.answer.toLowerCase().trim();
+      userAnswer.toLowerCase().trim() === problem.correctAnswer.toLowerCase().trim();
     setIsCorrect(correct);
     setSubmitted(true);
   };
@@ -56,9 +48,13 @@ export function ProblemCard({ problem }: { problem: Problem }) {
     setSubmitted(false);
     setIsCorrect(null);
   };
+  
+  const problemType = problem.possibleAnswers && problem.possibleAnswers.length > 0 
+    ? 'multiple-choice'
+    : 'fill-in-the-blank'
 
   const renderAnswerInput = () => {
-    switch (problem.type) {
+    switch (problemType) {
       case 'multiple-choice':
         return (
           <RadioGroup
@@ -66,7 +62,7 @@ export function ProblemCard({ problem }: { problem: Problem }) {
             value={userAnswer}
             disabled={submitted}
           >
-            {problem.options?.map((option, index) => (
+            {problem.possibleAnswers?.map((option, index) => (
               <div key={index} className="flex items-center space-x-2">
                 <RadioGroupItem value={option} id={`${problem.id}-${index}`} />
                 <Label htmlFor={`${problem.id}-${index}`}>{option}</Label>
@@ -75,8 +71,7 @@ export function ProblemCard({ problem }: { problem: Problem }) {
           </RadioGroup>
         );
       case 'fill-in-the-blank':
-      case 'definition':
-      case 'comprehension':
+      default:
         return (
           <Input
             placeholder="Your answer"
@@ -85,8 +80,6 @@ export function ProblemCard({ problem }: { problem: Problem }) {
             disabled={submitted}
           />
         );
-      default:
-        return null;
     }
   };
 
@@ -94,9 +87,9 @@ export function ProblemCard({ problem }: { problem: Problem }) {
     <Card className="flex flex-col">
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
-          <CardTitle className="text-lg">{problem.question}</CardTitle>
-          <Badge variant="outline" className="whitespace-nowrap">
-            {problem.type.replace('-', ' ')}
+          <CardTitle className="text-lg">{problem.questionText}</CardTitle>
+          <Badge variant="outline" className="whitespace-nowrap capitalize">
+            {problem.topic}
           </Badge>
         </div>
         {problem.passage && (
@@ -123,7 +116,7 @@ export function ProblemCard({ problem }: { problem: Problem }) {
                 <XCircle className="h-4 w-4" />
                 <AlertTitle>Incorrect</AlertTitle>
                 <AlertDescription>
-                  The correct answer is: <strong>{problem.answer}</strong>
+                  The correct answer is: <strong>{problem.correctAnswer}</strong>
                 </AlertDescription>
               </Alert>
             )}
