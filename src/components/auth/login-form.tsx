@@ -19,8 +19,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { useAuth } from '@/firebase';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { useAuth, useFirestore } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import type { User as AppUser } from '@/types/user';
+
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }),
@@ -34,6 +37,8 @@ export default function LoginForm() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const auth = useAuth();
+  const firestore = useFirestore();
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -45,7 +50,7 @@ export default function LoginForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setLoading(true);
-    if (!auth) {
+    if (!auth || !firestore) {
       toast({
         variant: 'destructive',
         title: 'Login Failed',
@@ -56,18 +61,43 @@ export default function LoginForm() {
     }
 
     try {
-      await signInWithEmailAndPassword(
+      const userCredential = await signInWithEmailAndPassword(
         auth,
         values.email,
         values.password
       );
 
-      toast({
-        title: 'Login Successful',
-        description: `Welcome back! Redirecting you to the dashboard.`,
-      });
+      // After successful sign-in, check the user's role from Firestore.
+      const userDocRef = doc(firestore, 'users', userCredential.user.uid);
+      const userDoc = await getDoc(userDocRef);
 
-      router.push('/dashboard');
+      if (userDoc.exists()) {
+        const appUser = userDoc.data() as AppUser;
+        if (appUser.role === 'admin') {
+          // If the user is an admin, proceed to the dashboard.
+          toast({
+            title: 'Login Successful',
+            description: `Welcome back! Redirecting you to the dashboard.`,
+          });
+          router.push('/dashboard');
+        } else {
+          // If the user is not an admin, deny access.
+          await signOut(auth); // Sign the user out.
+          toast({
+            variant: 'destructive',
+            title: 'Access Denied',
+            description: 'You do not have permission to access this area.',
+          });
+        }
+      } else {
+        // This case should ideally not happen if user docs are created on signup.
+        await signOut(auth);
+        toast({
+          variant: 'destructive',
+          title: 'Login Failed',
+          description: 'User profile not found.',
+        });
+      }
     } catch (error: any) {
       console.error(error);
       toast({

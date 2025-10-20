@@ -56,8 +56,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         }
       }
       // If the user is an admin, they can stay.
+    } else if (firebaseUser && !isAppUserLoading) {
+        // Edge case: Firebase auth user exists, but Firestore doc doesn't.
+        // This could happen if doc creation failed. Log them out.
+        if (auth) {
+          signOut(auth).then(() => {
+            router.push('/');
+          });
+        }
     }
-  }, [firebaseUser, isUserLoading, appUser, isAppUserLoading, router, auth]);
+  }, [firebaseUser, isUserLoading, appUser, isAppUserLoading]);
 
   // Combined loading state:
   // 1. Initial Firebase Auth check is running.

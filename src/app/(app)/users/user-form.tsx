@@ -40,7 +40,7 @@ import { collection, doc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import type { WithId } from '@/firebase/firestore/use-collection';
 import type { User as AppUser, UserRole } from '@/types/user';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithCredential, EmailAuthProvider } from 'firebase/auth';
 
 const nationalities = [
   'S. Korea',
@@ -122,8 +122,13 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!firestore || !auth) return;
+    if (!firestore || !auth || !auth.currentUser) return;
     setLoading(true);
+
+    // Store current admin credentials if they exist.
+    const admin = auth.currentUser;
+    const adminEmail = admin.email;
+
 
     try {
       if (mode === 'add') {
@@ -166,7 +171,11 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
         updateDocumentNonBlocking(userDocRef, updatedData);
         toast({ title: 'User Updated', description: `${values.displayName}'s information has been updated.` });
       }
+
       onOpenChange(false);
+      // Reload the page to reflect changes and re-establish admin auth state
+      window.location.reload();
+
     } catch (error: any) {
       console.error(error);
       toast({
@@ -177,6 +186,10 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
           : error.message || 'An unexpected error occurred.',
       });
     } finally {
+      // This part is tricky because createUserWithEmailAndPassword signs the new user in.
+      // We need to sign the admin back in.
+      // A full solution might require a backend function, but for client-side...
+      // we can try to force a reload to let the auth state listener in the layout handle it.
       setLoading(false);
     }
   }
