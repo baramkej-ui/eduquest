@@ -5,7 +5,7 @@ import AppSidebar from '@/components/layout/app-sidebar';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import type { User as AppUser } from '@/types/user';
 import GlobalLoader from '@/components/layout/global-loader';
 import { doc } from 'firebase/firestore';
@@ -23,30 +23,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { data: appUser, isLoading: isAppUserLoading } = useDoc<AppUser>(userDocRef);
   
   useEffect(() => {
-    // Wait until the initial user loading from Firebase Auth is complete.
-    if (isUserLoading) {
-      return;
+    // Wait until both Firebase Auth and Firestore loading are complete.
+    if (!isUserLoading && !isAppUserLoading) {
+      // If there's no Firebase user after loading, redirect to login.
+      if (!firebaseUser) {
+        router.push('/');
+      }
+      // If there's a Firebase user but no corresponding Firestore document,
+      // something is wrong (or they are a new user not yet in the DB).
+      // For this app, we'll redirect them. A more robust app might go to a profile setup page.
+      else if (!appUser) {
+        // This case could happen if the user record in Firestore is deleted
+        // but the auth record still exists.
+        router.push('/');
+      }
     }
-
-    // If there's no authenticated user, redirect to login.
-    if (!firebaseUser) {
-      router.push('/');
-      return;
-    }
-
-    // If we are still loading the app-specific user data from Firestore, do nothing yet.
-    if (isAppUserLoading) {
-      return;
-    }
-
-    // If after loading, there is still no app user, it might be a new user
-    // or data hasn't been created yet. For this app, we assume it's an error
-    // or they shouldn't be here, so we redirect.
-    // A more robust app might redirect to a profile creation page.
-    if (!appUser) {
-      router.push('/');
-    }
-
   }, [firebaseUser, appUser, isUserLoading, isAppUserLoading, router]);
 
   // Show a global loader while either Firebase Auth is initializing or
@@ -55,8 +46,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return <GlobalLoader />;
   }
 
-  // If after all loading, there's no appUser, it means the redirect is in progress
-  // or something went wrong. Returning null prevents rendering the layout.
+  // If after all loading, there's no appUser, it means a redirect is in progress.
+  // Rendering the loader prevents a brief flash of the layout.
   if (!appUser) {
     return <GlobalLoader />;
   }
