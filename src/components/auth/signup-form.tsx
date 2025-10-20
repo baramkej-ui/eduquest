@@ -80,7 +80,7 @@ export default function SignupForm() {
         role: 'admin', // Default role for self-signup is admin
       };
 
-      setDocumentNonBlocking(userDocRef, userData, { merge: true });
+      setDocumentNonBlocking(userDocRef, userData, {});
 
 
       toast({

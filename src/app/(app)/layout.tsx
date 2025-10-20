@@ -61,16 +61,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // 로딩 중이거나, 이미 firebaseUser가 없는 상태(로그아웃 진행 등)일 때는 아무것도 하지 않음.
-    if (isLoading || !firebaseUser) {
+    if (isLoading || firebaseUser) {
       return;
     }
 
-    // 로딩이 끝났는데 appUser가 없거나 role이 admin이 아닌 경우 로그아웃 처리
-    if (!appUser || appUser.role !== 'admin') {
+    // 로딩이 끝났는데 firebaseUser가 없는 경우 (인증되지 않은 상태)
+    if (!firebaseUser) {
+      router.push('/');
+    }
+  }, [isLoading, firebaseUser, router]);
+
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    // 로딩이 끝난 후, firebaseUser는 있지만 appUser가 없거나 role이 admin이 아닌 경우
+    if (firebaseUser && (!appUser || appUser.role !== 'admin')) {
       if (auth) {
         signOut(auth);
       }
-      router.push('/');
     }
   }, [isLoading, firebaseUser, appUser, auth, router]);
 
