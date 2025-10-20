@@ -34,15 +34,13 @@ import {
   useFirestore,
   updateDocumentNonBlocking,
   setDocumentNonBlocking,
-  firebaseConfig,
+  useAuth,
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import type { WithId } from '@/firebase/firestore/use-collection';
 import type { User as AppUser, UserRole } from '@/types/user';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { initializeApp, deleteApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
 import { nationalities } from '@/types/user';
 
 const getFormSchema = (mode: 'add' | 'edit') =>
@@ -88,6 +86,7 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const firestore = useFirestore();
+  const auth = useAuth(); // Use the existing auth instance
 
   const formSchema = getFormSchema(mode);
 
@@ -104,22 +103,28 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!firestore) return;
+    if (!firestore || !auth) return;
     setLoading(true);
 
-    const tempAppName = `temp-auth-app-${Date.now()}`;
-    const tempApp = initializeApp(firebaseConfig, tempAppName);
-    const tempAuth = getAuth(tempApp);
+    // The temporary app logic was causing internal Firestore errors.
+    // We should use the main app's auth instance for creating users,
+    // but this will sign the admin out. The proper way to handle this
+    // is with a server-side function (e.g., Firebase Cloud Function)
+    // that uses the Admin SDK. For this client-only implementation,
+    // we accept that the admin will be temporarily signed out and then
+    // can sign back in. A more robust solution would require backend changes.
 
     try {
       if (mode === 'add') {
         if (!values.password) {
-          // This should be caught by form validation, but as a safeguard.
           throw new Error('Password is required to create a new user.');
         }
 
+        // NOTE: This will sign the current admin out. This is a limitation
+        // of the client-side SDK. A server-side solution is recommended for
+        // seamless multi-user management.
         const userCredential = await createUserWithEmailAndPassword(
-          tempAuth,
+          auth,
           values.email,
           values.password
         );
@@ -139,13 +144,16 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
 
         toast({
           title: 'User Added',
-          description: `${values.displayName} has been added.`,
+          description: `${values.displayName} has been added. You may need to log in again.`,
         });
+        // The admin is now signed out. The main layout will handle redirection.
+
       } else if (mode === 'edit' && user) {
         const userDocRef = doc(firestore, 'users', user.id);
         const updatedData = {
           displayName: values.displayName,
           role: values.role,
+
           nationality: values.nationality,
         };
         updateDocumentNonBlocking(userDocRef, updatedData);
@@ -165,8 +173,6 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
             : error.message || 'An unexpected error occurred.',
       });
     } finally {
-      // Always clean up the temporary app
-      await deleteApp(tempApp);
       setLoading(false);
     }
   }
