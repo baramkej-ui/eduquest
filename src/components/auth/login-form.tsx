@@ -68,7 +68,6 @@ export default function LoginForm() {
       router.push('/dashboard');
 
     } catch (error: any) {
-      console.error(error);
       const isWrongPassword = error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found';
       toast({
         variant: 'destructive',
@@ -77,7 +76,8 @@ export default function LoginForm() {
           ? 'Invalid email or password.'
           : 'An unexpected error occurred. Please try again.',
       });
-      setLoading(false);
+    } finally {
+        setLoading(false);
     }
   }
 

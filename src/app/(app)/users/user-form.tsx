@@ -109,14 +109,14 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
 
     const tempAppName = `temp-auth-app-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
+    const tempAuth = getAuth(tempApp);
 
     try {
       if (mode === 'add') {
         if (!values.password) {
+          // This should be caught by form validation, but as a safeguard.
           throw new Error('Password is required to create a new user.');
         }
-
-        const tempAuth = getAuth(tempApp);
 
         const userCredential = await createUserWithEmailAndPassword(
           tempAuth,
@@ -154,8 +154,7 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
           description: `${values.displayName}'s information has been updated.`,
         });
       }
-
-      onOpenChange(false);
+      onOpenChange(false); // Close dialog on success
     } catch (error: any) {
       toast({
         variant: 'destructive',
@@ -166,6 +165,7 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
             : error.message || 'An unexpected error occurred.',
       });
     } finally {
+      // Always clean up the temporary app
       await deleteApp(tempApp);
       setLoading(false);
     }
