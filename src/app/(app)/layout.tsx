@@ -17,8 +17,8 @@ const AppUserContext = createContext<AppUser | null>(null);
 export const useAppUser = () => useContext(AppUserContext);
 
 /**
- * This inner layout component is rendered only after authentication and authorization are confirmed.
- * It receives the validated appUser object as a prop and sets up the context and UI.
+ * 이 내부 레이아웃 컴포넌트는 인증 및 권한 부여가 확인된 후에만 렌더링됩니다.
+ * 검증된 appUser 객체를 prop으로 받아 컨텍스트와 UI를 설정합니다.
  */
 function AuthenticatedLayout({
   user,
@@ -61,40 +61,31 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isLoading = isUserLoading || isAppUserLoading;
 
   useEffect(() => {
-    // Wait until all loading is finished before making any decisions.
+    // 로딩이 모두 끝난 후에만 리디렉션 로직을 실행합니다.
     if (isLoading) {
       return;
     }
 
-    // If loading is done, and we have a user but they are not a valid admin,
-    // sign them out and redirect to the login page.
-    if (firebaseUser && (!appUser || appUser.role !== 'admin')) {
+    // 로딩 완료 후, 유효한 관리자가 아니면 로그아웃 및 리디렉션합니다.
+    if (!firebaseUser || !appUser || appUser.role !== 'admin') {
       if (auth) {
         signOut(auth);
       }
       router.push('/');
     }
-
-    // If loading is done and there's no firebase user at all, redirect.
-    if (!firebaseUser) {
-      router.push('/');
-    }
   }, [isLoading, firebaseUser, appUser, auth, router]);
 
-  // 1. While loading, show a global loader.
-  // This prevents any UI flash or redirection logic from running prematurely.
+  // 1. 모든 데이터(인증, 프로필)가 로드될 때까지 로더를 표시합니다.
   if (isLoading) {
     return <GlobalLoader />;
   }
 
-  // 2. After loading, if the user is a valid admin, render the authenticated layout.
-  // We explicitly check all conditions are met before rendering the children.
+  // 2. 로딩이 완료되고, 사용자가 유효한 관리자일 경우에만 인증된 레이아웃을 렌더링합니다.
   if (firebaseUser && appUser && appUser.role === 'admin') {
     return <AuthenticatedLayout user={appUser}>{children}</AuthenticatedLayout>;
   }
 
-  // 3. If loading is complete but the user is not a valid admin,
-  // show the loader until the useEffect above completes the redirection.
-  // This acts as a fallback to prevent rendering a broken UI.
+  // 3. 로딩이 완료되었지만 유효한 관리자가 아닌 경우(useEffect가 리디렉션을 처리하기 전),
+  // 깨진 UI가 렌더링되는 것을 방지하기 위해 로더를 계속 표시합니다.
   return <GlobalLoader />;
 }
