@@ -29,42 +29,31 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   );
   
   const { data: appUser, isLoading: isAppUserLoading } = useDoc<AppUser>(userDocRef);
-
-  // Derive states based on loading and data
+  
   const isLoading = isUserLoading || isAppUserLoading;
-  const isLoggedIn = !isLoading && !!firebaseUser;
-  const isAdmin = isLoggedIn && !!appUser && appUser.role === 'admin';
 
   useEffect(() => {
-    // Don't do anything while loading
+    // Wait until all loading is complete before making any decisions.
     if (isLoading) {
       return;
     }
 
-    // If loading is finished, but user is not logged in, redirect to login
-    if (!firebaseUser) {
-      router.push('/');
-      return;
-    }
-
-    // If user is logged in, but is not an admin (no profile or wrong role)
-    if (firebaseUser && (!appUser || appUser.role !== 'admin')) {
+    // After loading, if there's no Firebase user, or no app user profile,
+    // or the user is not an admin, then sign out and redirect to login.
+    if (!firebaseUser || !appUser || appUser.role !== 'admin') {
       if (auth) {
-        signOut(auth).then(() => {
-          router.push('/');
-        });
+        signOut(auth); // Ensure any partial login state is cleared
       }
-      return;
+      router.push('/');
     }
-
   }, [isLoading, firebaseUser, appUser, auth, router]);
 
-  // Show a global loader while loading
-  // Or if a redirect is in progress (isLoggedIn is false, or isAdmin is false after login attempt)
-  if (isLoading || !isLoggedIn || !isAdmin) {
+  // While loading, or if the user is not a fully authenticated admin yet, show the loader.
+  // This prevents rendering the dashboard layout prematurely.
+  if (isLoading || !firebaseUser || !appUser || appUser.role !== 'admin') {
     return <GlobalLoader />;
   }
-  
+
   // All checks passed, render the authenticated admin layout.
   return (
     <AppUserContext.Provider value={appUser}>
