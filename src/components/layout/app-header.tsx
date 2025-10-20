@@ -29,7 +29,8 @@ export default function AppHeader() {
     router.push('/');
   };
 
-  const getInitials = (name: string) => {
+  const getInitials = (name?: string | null) => {
+    if (!name) return 'U';
     const names = name.split(' ');
     if (names.length > 1) {
       return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
@@ -60,7 +61,7 @@ export default function AppHeader() {
                     alt={appUser.displayName || 'User'}
                   />
                   <AvatarFallback>
-                    {appUser.displayName ? getInitials(appUser.displayName) : 'U'}
+                    {getInitials(appUser.displayName)}
                   </AvatarFallback>
                 </Avatar>
               </Button>
