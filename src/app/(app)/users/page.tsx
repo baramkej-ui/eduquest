@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useCollection } from '@/firebase';
+import { useCollection, WithId } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { useFirestore, useMemoFirebase } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -36,9 +36,7 @@ export default function UsersPage() {
     [firestore]
   );
 
-  const { data: users, isLoading } = useCollection<
-    Omit<User, 'uid'> & { role: 'admin' | 'teacher' | 'student', id: string }
-  >(usersQuery);
+  const { data: users, isLoading } = useCollection<User>(usersQuery);
 
   const getAvatar = (index: number) => {
     const avatarId = `student-avatar-${(index % 4) + 1}`;
