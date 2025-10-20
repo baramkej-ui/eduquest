@@ -29,42 +29,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { data: appUser, isLoading: isAppUserLoading } = useDoc<AppUser>(userDocRef);
   
   useEffect(() => {
-    // Wait until initial auth check is complete.
+    // If auth state is still loading, do nothing.
     if (isUserLoading) {
       return;
     }
 
-    // If auth check is done and there's no firebase user, redirect to login.
+    // After auth loading is complete, if there is no user, redirect to login.
     if (!firebaseUser) {
       router.push('/');
-      return;
     }
+  }, [firebaseUser, isUserLoading, router]);
 
-    // If there is a firebase user, but we are still waiting for the appUser profile from Firestore,
-    // don't do anything yet. The loader below will handle the UI.
-    if (isAppUserLoading) {
-      return;
-    }
-
-    // If all loading is complete, and we have a firebaseUser but no appUser profile,
-    // it's an invalid state (e.g., deleted user), so redirect to login.
-    if (firebaseUser && !appUser) {
-      router.push('/');
-    }
-  }, [firebaseUser, appUser, isUserLoading, isAppUserLoading, router]);
-
-  // Show a global loader if:
-  // 1. We are checking the initial Firebase auth state.
-  // 2. We have a Firebase user but are still fetching their profile from Firestore.
+  // Combined loading state:
+  // 1. Initial Firebase Auth check is running.
+  // 2. We have a Firebase user, but we are still waiting for their profile from Firestore.
   const isLoading = isUserLoading || (firebaseUser && isAppUserLoading);
 
   if (isLoading) {
     return <GlobalLoader />;
   }
 
-  // If after all loading, there's still no authenticated user or app profile,
-  // it means a redirect is in progress or authentication failed.
-  // Rendering the loader prevents a brief flash of the layout.
+  // If loading is complete and we still don't have a user, a redirect is in progress.
+  // Showing the loader prevents a flash of the layout.
+  // Also, if a Firebase user exists but their Firestore profile doesn't (e.g., deleted from DB),
+  // we treat it as an invalid state and show loader while redirecting (which useEffect handles).
   if (!firebaseUser || !appUser) {
     return <GlobalLoader />;
   }
