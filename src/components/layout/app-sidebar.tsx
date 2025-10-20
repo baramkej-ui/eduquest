@@ -5,12 +5,11 @@ import {
   GraduationCap,
   LayoutDashboard,
   Library,
-  LogOut,
   Settings,
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 
 import {
   Sidebar,
@@ -22,9 +21,6 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import type { User } from '@/types/user';
-import { signOut } from 'firebase/auth';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/firebase';
 
 const adminNav = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -36,21 +32,6 @@ const adminNav = [
 
 export default function AppSidebar({ user }: { user: User }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const { toast } = useToast();
-  const auth = useAuth();
-
-  const handleLogout = async () => {
-    try {
-      if (auth) {
-        await signOut(auth);
-      }
-      toast({ title: 'Logged out successfully' });
-      router.push('/');
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Logout failed' });
-    }
-  };
 
   const navItems = adminNav.filter(item => !item.adminOnly || user.role === 'admin');
 
@@ -85,16 +66,6 @@ export default function AppSidebar({ user }: { user: User }) {
             <SidebarMenuButton className="w-full justify-start">
               <Settings />
               <span>Settings</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={handleLogout}
-              variant="outline"
-              className="w-full justify-start text-destructive hover:text-destructive"
-            >
-              <LogOut />
-              <span>Logout</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
