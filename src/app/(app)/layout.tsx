@@ -7,7 +7,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { useDoc, useFirestore, useUser, useMemoFirebase, useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
-import { createContext, useContext, useEffect, useMemo } from 'react';
+import { createContext, useContext, useEffect } from 'react';
 import type { User as AppUser } from '@/types/user';
 import { doc } from 'firebase/firestore';
 
@@ -60,11 +60,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isLoading = isUserLoading || isAppUserLoading;
 
   useEffect(() => {
-    if (isLoading) {
+    // 로딩 중이거나, 이미 firebaseUser가 없는 상태(로그아웃 진행 등)일 때는 아무것도 하지 않음.
+    if (isLoading || !firebaseUser) {
       return;
     }
 
-    if (!firebaseUser || !appUser || appUser.role !== 'admin') {
+    // 로딩이 끝났는데 appUser가 없거나 role이 admin이 아닌 경우 로그아웃 처리
+    if (!appUser || appUser.role !== 'admin') {
       if (auth) {
         signOut(auth);
       }
@@ -72,13 +74,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [isLoading, firebaseUser, appUser, auth, router]);
 
+  // 두 데이터가 모두 로드될 때까지는 무조건 로더를 표시
   if (isLoading) {
     return <GlobalLoader />;
   }
 
+  // 모든 검증(로딩 완료, 사용자 존재, 관리자 역할)을 통과한 경우에만 대시보드 UI를 렌더링
   if (firebaseUser && appUser && appUser.role === 'admin') {
     return <AuthenticatedLayout user={appUser}>{children}</AuthenticatedLayout>;
   }
 
+  // 위 조건에 해당하지 않는 경우 (리디렉션이 처리되기 전)에도 로더를 표시
   return <GlobalLoader />;
 }
