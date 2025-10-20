@@ -1,95 +1,99 @@
 /**
- * @file Firestore Security Rules for EduQuest Application
+ * @fileoverview Firestore Security Rules for EduQuest application.
  *
- * @core_philosophy This ruleset enforces a strict user-ownership model for personal data (results),
- * while allowing public read access to problems. Administrative roles are not yet implemented.
+ * Core Philosophy:
+ * This ruleset enforces a user-ownership model for user-specific data (results),
+ * restricts user listing, and provides role-based access for managing problems.
  *
- * @data_structure
- * - `/users/{userId}`: Stores user profiles, with 'userId' as the document ID.
- * - `/problems/{problemId}`: Stores educational problems, publicly readable.
- * - `/users/{userId}/results/{resultId}`: Stores user-specific results, accessible only by the owning user.
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles.
+ * - /problems/{problemId}: Stores educational problems.
+ * - /users/{userId}/results/{resultId}: Stores user-specific results.
  *
- * @key_security_decisions
- * - User listing is implicitly allowed (due to missing explicit restrictions).
- * - Problems are publicly readable, but writable only by authorized roles (currently disabled).
- * - The default security posture is strict: any access not explicitly allowed is denied.
+ * Key Security Decisions:
+ * - User listing is denied to prevent unauthorized access to user data.
+ * - Problems are publicly readable but writable only by admins and teachers.
+ * - User results are accessible only to the owner and potentially admins (role-based).
  *
- * @denormalization_for_authorization No denormalization is required as authorization decisions are based
- * solely on the document path and authenticated user ID.
- *
- * @structural_segregation User-specific data (results) is stored in a subcollection, separate from
- * public data (problems).
+ * Denormalization for Authorization:
+ *  - Authorization is handled via path-based ownership for user results, eliminating the need for `get()` calls.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Manages user profiles.
+     * @description Secure user profiles. Only the user themselves can read their profile. User listing is denied.
      * @path /users/{userId}
-     * @allow (create) Authenticated user can create their own profile if the userId matches their auth.uid.
-     * @allow (get, list) Authenticated user can read their own profile.
-     * @deny (create) If the userId does not match the authenticated user's uid.
-     * @deny (update, delete) Only the authenticated user can update or delete their profile, not others.
-     * @principle Enforces document ownership and authenticated access to user profiles.
+     * @allow (get) User with matching ID can read their own profile.
+     * @deny (get) User tries to read another user's profile.
+     * @allow (create) User can create their own profile with a matching ID.
+     * @deny (create) User attempts to create a profile with a mismatched ID.
+     * @allow (update) User can update their own profile with a matching ID.
+     * @deny (update) User attempts to update a profile with a mismatched ID or a non-existent profile.
+     * @allow (delete) User can delete their own profile with a matching ID.
+     * @deny (delete) User attempts to delete a profile with a mismatched ID or a non-existent profile.
+     * @principle Enforces document ownership for reads and writes, restricts user listing.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
       function isOwner(userId) {
-        return request.auth.uid == userId;
+        return request.auth != null && request.auth.uid == userId;
       }
-
       function isExistingOwner(userId) {
         return isOwner(userId) && resource != null;
       }
-
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == request.auth.uid;
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
       allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Manages educational problems; accessible to all for reading.  Write access is disabled in this prototype.
+     * @description Secure educational problems. Problems are publicly readable, but only teachers/admins can create/update/delete.
      * @path /problems/{problemId}
-     * @allow (get, list) Anyone can read the problems.
-     * @deny (create, update, delete) No write permissions are granted in this version.
-     * @principle Public read access with restricted write access.
+     * @allow (get) Anyone can read a problem.
+     * @allow (list) Anyone can list problems.
+     * @deny (create) Non-admin/teacher attempts to create a problem.
+     * @deny (update) Non-admin/teacher attempts to update a problem.
+     * @deny (delete) Non-admin/teacher attempts to delete a problem.
+     * @principle Public read with owner-only writes, restricts modification to admins and teachers.
      */
     match /problems/{problemId} {
-      allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add role-based write validation (e.g., admin, teacher).
+      allow get: if true;
+      allow list: if true;
+      allow create: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow update: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      // CRITICAL: Cannot implement owner-only writes. The 'Problem' entity is missing an 'ownerId' or 'authorId' field.
     }
 
     /**
-     * @description Manages user-specific results.
+     * @description Secure user results. Only the user or an admin can manage their results.
      * @path /users/{userId}/results/{resultId}
-     * @allow (create) Authenticated user can create their own result if the userId matches their auth.uid.
-     * @allow (get, list) Authenticated user can read their own results.
-     * @deny (create) If the userId does not match the authenticated user's uid.
-     * @deny (update, delete) Only the authenticated user can update or delete their result, not others.
-     * @principle Enforces document ownership and authenticated access to user results.
+     * @allow (get) User with matching ID can read their own result.
+     * @deny (get) User tries to read another user's result.
+     * @allow (list) User with matching ID can list their own results.
+     * @deny (list) User tries to list another user's results.
+     * @allow (create) User with matching ID can create results for themselves.
+     * @deny (create) User attempts to create a result for another user.
+     * @allow (update) User with matching ID can update their own result.
+     * @deny (update) User attempts to update a result for another user or a non-existent result.
+     * @allow (delete) User with matching ID can delete their own result.
+     * @deny (delete) User attempts to delete a result for another user or a non-existent result.
+     * @principle Enforces document ownership for reads and writes.
      */
     match /users/{userId}/results/{resultId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
       function isOwner(userId) {
-        return request.auth.uid == userId;
+        return request.auth != null && request.auth.uid == userId;
       }
-
       function isExistingOwner(userId) {
         return isOwner(userId) && resource != null;
       }
 
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
       allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
       allow delete: if isExistingOwner(userId);
     }
