@@ -9,7 +9,7 @@ import { doc } from 'firebase/firestore';
 import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useContext, useEffect, useMemo } from 'react';
 import type { User as AppUser } from '@/types/user';
 
 const AppUserContext = createContext<AppUser | null>(null);
@@ -48,6 +48,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
   const router = useRouter();
 
+  // 1. Firestore Document Reference 메모이제이션
   const userDocRef = useMemoFirebase(
     () =>
       firestore && firebaseUser
@@ -56,35 +57,52 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     [firestore, firebaseUser]
   );
 
+  // 2. Firestore로부터 App User 데이터 가져오기
   const { data: appUser, isLoading: isAppUserLoading } = useDoc<AppUser>(userDocRef);
-
-  const isLoading = isUserLoading || isAppUserLoading;
+  
+  // 3. 통합 로딩 상태 계산
+  // isUserLoading: Firebase Auth 인증 상태 로딩
+  // isAppUserLoading: Firestore 프로필 정보 로딩
+  const isLoading = isUserLoading || (firebaseUser && isAppUserLoading);
 
   useEffect(() => {
-    // 로딩 중이거나, 이미 유효한 사용자가 있는 경우는 아무것도 하지 않음.
-    if (isLoading || (firebaseUser && appUser?.role === 'admin')) {
+    // 로딩이 진행 중일 때는 아무 작업도 하지 않고 기다립니다.
+    if (isLoading) {
       return;
     }
 
-    // 로딩이 끝났지만, 인증되지 않았거나 관리자가 아닌 경우
-    if (!isLoading) {
-      if (auth) {
-        signOut(auth);
+    // 로딩이 완료된 후, 인증 상태 및 권한을 확인합니다.
+    const isAuthenticatedAdmin = !!firebaseUser && !!appUser && appUser.role === 'admin';
+
+    if (!isAuthenticatedAdmin) {
+      // 관리자로 인증되지 않은 경우 (로그인 안 됨, 프로필 없음, 또는 역할이 admin이 아님)
+      // 로그아웃 처리 후 로그인 페이지로 리디렉션합니다.
+      if (auth && auth.currentUser) {
+          signOut(auth).catch(err => console.error("Sign out failed on redirect:", err));
       }
-      router.push('/');
+      router.replace('/'); 
     }
+    // 관리자로 인증된 경우에는 아무것도 하지 않고, 아래 렌더링 로직이 UI를 보여줍니다.
+
   }, [isLoading, firebaseUser, appUser, auth, router]);
 
-  // 두 데이터가 모두 로드될 때까지는 무조건 로더를 표시
+
+  // 5. 렌더링 로직
+
+  // Case 1: 데이터 로딩 중이거나, 리디렉션이 처리되기 전에는 항상 로더를 표시합니다.
+  // 이 부분이 경쟁 상태를 방지하는 핵심입니다.
   if (isLoading) {
     return <GlobalLoader />;
   }
 
-  // 모든 검증(로딩 완료, 사용자 존재, 관리자 역할)을 통과한 경우에만 대시보드 UI를 렌더링
-  if (firebaseUser && appUser && appUser.role === 'admin') {
+  // Case 2: 모든 검증(로딩 완료, 인증 성공, 관리자 권한 확인)을 통과한 경우
+  // appUser가 존재하고, 역할이 'admin'인 것이 보장됩니다.
+  if (appUser && appUser.role === 'admin') {
     return <AuthenticatedLayout user={appUser}>{children}</AuthenticatedLayout>;
   }
 
-  // 위 조건에 해당하지 않는 경우 (리디렉션이 처리되기 전)에도 로더를 표시
+  // Case 3: 검증 실패 후 리디렉션 대기 중
+  // useEffect에서 `router.replace('/')`가 호출되었지만, 리디렉션이 완료될 때까지 잠시
+  // 이 코드가 실행될 수 있습니다. 이때 UI 깜빡임을 방지하기 위해 로더를 표시합니다.
   return <GlobalLoader />;
 }
