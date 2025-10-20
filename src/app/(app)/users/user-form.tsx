@@ -116,6 +116,8 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
       email: user?.email || '',
       role: user?.role || 'student',
       nationality: user?.nationality || 'S. Korea',
+      password: '',
+      confirmPassword: '',
     },
   });
 
@@ -148,7 +150,7 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
           nationality: values.nationality,
         };
 
-        setDocumentNonBlocking(userDocRef, newUser);
+        setDocumentNonBlocking(userDocRef, newUser, {});
         
         toast({ title: 'User Added', description: `${values.displayName} has been added.` });
 
