@@ -33,10 +33,9 @@ import { useState } from 'react';
 import {
   useFirestore,
   updateDocumentNonBlocking,
-  useFirebase,
 } from '@/firebase';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { collection, doc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import type { WithId } from '@/firebase/firestore/use-collection';
 import type { User as AppUser, UserRole } from '@/types/user';
@@ -84,7 +83,7 @@ export type UserFormProps = {
 export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const { firebaseApp, firestore } = useFirebase();
+  const firestore = useFirestore();
 
   const formSchema = getFormSchema(mode);
 
@@ -101,12 +100,12 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!firestore || !firebaseApp) return;
+    if (!firestore) return;
     setLoading(true);
 
     try {
       if (mode === 'add') {
-        const functions = getFunctions(firebaseApp);
+        const functions = getFunctions(); // No need to pass firebaseApp, it gets the default instance.
         const createNewUser = httpsCallable(functions, 'createNewUser');
         await createNewUser({
           email: values.email,
