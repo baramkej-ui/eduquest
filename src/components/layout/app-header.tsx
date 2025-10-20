@@ -32,7 +32,7 @@ export default function AppHeader() {
 
   const getInitials = (name?: string | null) => {
     if (!name) return 'U';
-    const names = name.split(' ');
+    const names = name.trim().split(' ');
     if (names.length > 1) {
       return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
     }
@@ -45,7 +45,7 @@ export default function AppHeader() {
       <div className="flex-1" />
       {appUser && (
         <div className="flex items-center gap-3">
-          <div className="text-right">
+          <div className="text-right hidden sm:block">
             <span className="text-sm font-medium capitalize text-red-600">
               {appUser.role}
             </span>{' '}

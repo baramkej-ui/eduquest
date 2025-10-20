@@ -77,7 +77,7 @@ export default function LoginForm() {
           // If the user is an admin, proceed to the dashboard.
           toast({
             title: 'Login Successful',
-            description: `Welcome back! Redirecting you to the dashboard.`,
+            description: `Welcome back, ${appUser.displayName}!`,
           });
           router.push('/dashboard');
         } else {
@@ -86,7 +86,7 @@ export default function LoginForm() {
           toast({
             variant: 'destructive',
             title: 'Access Denied',
-            description: 'You do not have permission to access this area.',
+            description: 'You do not have permission to access the admin dashboard.',
           });
         }
       } else {
@@ -100,10 +100,13 @@ export default function LoginForm() {
       }
     } catch (error: any) {
       console.error(error);
+      const isWrongPassword = error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential';
       toast({
         variant: 'destructive',
         title: 'Login Failed',
-        description: error.message || 'An unexpected error occurred.',
+        description: isWrongPassword
+          ? 'Invalid email or password.'
+          : 'An unexpected error occurred. Please try again.',
       });
     } finally {
       setLoading(false);

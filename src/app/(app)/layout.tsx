@@ -3,7 +3,7 @@
 import AppHeader from '@/components/layout/app-header';
 import AppSidebar from '@/components/layout/app-sidebar';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth } from '@/firebase';
+import { useUser, useFirestore, useMemoFirebase, useAuth } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect, createContext, useContext } from 'react';
 import type { User as AppUser } from '@/types/user';
@@ -65,7 +65,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           });
         }
     }
-  }, [firebaseUser, isUserLoading, appUser, isAppUserLoading]);
+  }, [firebaseUser, isUserLoading, appUser, isAppUserLoading, auth, router]);
 
   // Combined loading state:
   // 1. Initial Firebase Auth check is running.

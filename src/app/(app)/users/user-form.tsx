@@ -33,14 +33,16 @@ import { useState } from 'react';
 import {
   useFirestore,
   updateDocumentNonBlocking,
-  useAuth,
   setDocumentNonBlocking,
+  firebaseConfig
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import type { WithId } from '@/firebase/firestore/use-collection';
 import type { User as AppUser, UserRole } from '@/types/user';
-import { createUserWithEmailAndPassword, signInWithCredential, EmailAuthProvider } from 'firebase/auth';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
 
 const nationalities = [
   'S. Korea',
@@ -53,7 +55,8 @@ const nationalities = [
   'Saudi Arabia',
 ] as const;
 
-const formSchema = z
+
+const getFormSchema = (mode: 'add' | 'edit') => z
   .object({
     displayName: z.string().min(2, { message: 'Display name is required' }),
     email: z.string().email(),
@@ -64,8 +67,7 @@ const formSchema = z
   })
   .refine(
     (data) => {
-      // Password check is only required in 'add' mode
-      if (formSchema.mode === 'add') {
+      if (mode === 'add') {
         return data.password && data.password.length >= 6;
       }
       return true;
@@ -77,8 +79,7 @@ const formSchema = z
   )
   .refine(
     (data) => {
-       // Password check is only required in 'add' mode
-      if (formSchema.mode === 'add') {
+      if (mode === 'add') {
         return data.password === data.confirmPassword;
       }
       return true;
@@ -88,9 +89,6 @@ const formSchema = z
       path: ['confirmPassword'],
     }
   );
-
-// Add a static property to hold the mode
-formSchema.mode = 'add' as 'add' | 'edit';
 
 
 export type UserFormProps = {
@@ -104,10 +102,8 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const firestore = useFirestore();
-  const auth = useAuth();
-  
-  // Set the mode for the schema dynamically
-  formSchema.mode = mode;
+
+  const formSchema = getFormSchema(mode);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -122,23 +118,24 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!firestore || !auth || !auth.currentUser) return;
+    if (!firestore) return;
     setLoading(true);
-
-    // Store current admin credentials if they exist.
-    const admin = auth.currentUser;
-    const adminEmail = admin.email;
-
-
+    
     try {
       if (mode === 'add') {
         if (!values.password) {
           throw new Error('Password is required to create a new user.');
         }
+
+        // Create a temporary, secondary Firebase app instance to create user
+        // This avoids signing out the current admin user
+        const tempAppName = `temp-auth-app-${Date.now()}`;
+        const tempApp = initializeApp(firebaseConfig, tempAppName);
+        const tempAuth = getAuth(tempApp);
         
-        // 1. Create Firebase Auth user
+        // 1. Create Firebase Auth user using the temporary instance
         const userCredential = await createUserWithEmailAndPassword(
-          auth,
+          tempAuth,
           values.email,
           values.password
         );
@@ -161,8 +158,6 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
 
       } else if (mode === 'edit' && user) {
         const userDocRef = doc(firestore, 'users', user.id);
-        // For edits, we don't update password or email here.
-        // That would require separate, more secure flows.
         const updatedData = {
           displayName: values.displayName,
           role: values.role,
@@ -173,8 +168,6 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
       }
 
       onOpenChange(false);
-      // Reload the page to reflect changes and re-establish admin auth state
-      window.location.reload();
 
     } catch (error: any) {
       console.error(error);
@@ -186,10 +179,6 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
           : error.message || 'An unexpected error occurred.',
       });
     } finally {
-      // This part is tricky because createUserWithEmailAndPassword signs the new user in.
-      // We need to sign the admin back in.
-      // A full solution might require a backend function, but for client-side...
-      // we can try to force a reload to let the auth state listener in the layout handle it.
       setLoading(false);
     }
   }
