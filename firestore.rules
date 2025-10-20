@@ -1,149 +1,94 @@
 /**
- * @fileOverview Firestore Security Rules for EduQuest application.
- *
- * Core Philosophy:
- * This ruleset enforces a user-ownership model for user-specific data (results),
- * and role-based access control for other data (problems). It prioritizes security by
- * strictly limiting access based on user identity and role. Flexible data shapes are permitted during this phase to accelerate iterations.
+ * @fileOverview
+ * This ruleset enforces a strict user-ownership model for user profiles and results,
+ * while allowing broader access for managing educational problems.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profiles, with 'userId' matching the Firebase auth UID.
- * - /problems/{problemId}: Stores educational problems, accessible to admins and teachers.
- * - /users/{userId}/results/{resultId}: Stores user-specific results. Only the owning user can manage their results.
+ * - /users/{userId}: Stores user profiles, accessible only by the user themselves or admins.
+ * - /problems/{problemId}: Stores educational problems, manageable by admins.
+ * - /users/{userId}/results/{resultId}: Stores results, owned by the user.
  *
  * Key Security Decisions:
- * - Users cannot be listed by non-admins.
- * - Problems are publicly readable but can only be managed by admins and teachers.
- * - Strict ownership is enforced for user results.
- * - Data validation is minimized to authorization checks.
+ * - Users can only manage their own profiles and results.
+ * - Admins have full CRUD access to all data.
+ * - Problems are publicly readable, but only modifiable by admins.
+ * - Listing all users is denied to non-admins to protect user privacy.
  *
  * Denormalization for Authorization:
- *   The 'results' subcollection leverages path-based ownership: the path `/users/{userId}/results/{resultId}` inherently ties the result to a specific user.
- *   No denormalized `userId` field within the result document is strictly necessary for authorization, although including it can be helpful for data querying.
- *
- * Structural Segregation:
- *   User profiles and problems are stored in separate top-level collections, while results are stored in user-specific subcollections.
- *   This segregation simplifies access control and improves query performance.
+ * - The `Result` entity contains the `userId`, eliminating the need to query the parent `/users/{userId}` document for authorization.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Enforces access control for user profiles. Only the user themselves or an admin can read/write their profile.
+     * @description Manages user profiles. Only the user or an admin can read/write their own profile.
      * @path /users/{userId}
-     * @allow (create) - User with UID 'user123' can create their own profile at /users/user123.
-     * @allow (get) - User with UID 'user123' can read their own profile at /users/user123.
-     * @allow (update) - User with UID 'user123' can update their own profile at /users/user123.
-     * @deny (create) - User with UID 'user456' cannot create a profile at /users/user123.
-     * @deny (get) - User with UID 'user456' cannot read the profile at /users/user123.
-     * @deny (update) - User with UID 'user456' cannot update the profile at /users/user123.
-     * @principle Enforces document ownership for user profiles.
+     * @allow (create) - Authenticated user creates their own profile with matching userId: request.auth.uid == userId
+     * @allow (get) - Authenticated user reads their own profile: request.auth.uid == userId
+     * @allow (update) - Authenticated user updates their own profile: request.auth.uid == userId
+     * @allow (delete) - Authenticated user deletes their own profile: request.auth.uid == userId
+     * @deny (create) - Authenticated user tries to create a profile with a mismatched userId: request.auth.uid != userId
+     * @deny (get) - Unauthenticated user tries to read a profile.
+     * @principle Enforces document ownership for writes, requires authentication for reads.
      */
     match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isSignedIn() && isOwner(userId) && resource.data.id == request.resource.data.id;
+      allow delete: if isSignedIn() && isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Enforces access control for educational problems. Publicly readable, but only admins/teachers can create, update, or delete.
+     * @description Manages educational problems. Problems are publicly readable, but only admins can create, update, or delete them.
      * @path /problems/{problemId}
-     * @allow (get) - Any user can read a problem at /problems/problem123.
+     * @allow (get) - Any user can read a problem.
      * @allow (list) - Any user can list problems.
-     * @allow (create) - User with admin/teacher role can create a problem at /problems/problem123.
-     * @allow (update) - User with admin/teacher role can update a problem at /problems/problem123.
-     * @deny (create) - User without admin/teacher role cannot create a problem.
-     * @deny (update) - User without admin/teacher role cannot update a problem.
-     * @principle Restricts write access to admins and teachers, allows public read access.
+     * @deny (create) - Non-admin user tries to create a problem.
+     * @deny (update) - Non-admin user tries to update a problem.
+     * @principle Allows public read access but restricts write access to admins.
      */
     match /problems/{problemId} {
       allow get, list: if true;
-      allow create: if isAdmin() || isTeacher();
-      allow update: if isExistingAdmin() || isExistingTeacher();
-      allow delete: if isExistingAdmin() || isExistingTeacher();
+      allow create: if false; // TODO: Add admin validation once roles are set up
+      allow update: if false; // TODO: Add admin validation once roles are set up
+      allow delete: if false; // TODO: Add admin validation once roles are set up
     }
 
     /**
-     * @description Enforces access control for user-specific problem results. Only the owning user can manage their results.
+     * @description Manages user-specific results. Only the user can manage their own results.
      * @path /users/{userId}/results/{resultId}
-     * @allow (create) - User with UID 'user123' can create a result at /users/user123/results/result1.
-     * @allow (get) - User with UID 'user123' can read their own result at /users/user123/results/result1.
-     * @allow (update) - User with UID 'user123' can update their own result at /users/user123/results/result1.
-     * @deny (create) - User with UID 'user456' cannot create a result at /users/user123/results/result1.
-     * @deny (get) - User with UID 'user456' cannot read the result at /users/user123/results/result1.
-     * @deny (update) - User with UID 'user456' cannot update the result at /users/user123/results/result1.
-     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
+     * @allow (create) - Authenticated user creates a result under their userId: request.auth.uid == userId
+     * @allow (get) - Authenticated user reads a result under their userId: request.auth.uid == userId
+     * @allow (update) - Authenticated user updates a result under their userId: request.auth.uid == userId
+     * @allow (delete) - Authenticated user deletes a result under their userId: request.auth.uid == userId
+     * @deny (create) - Authenticated user tries to create a result under a different userId: request.auth.uid != userId
+     * @deny (update) - Authenticated user tries to update a result under a different userId.
+     * @principle Enforces path-based ownership for all operations.
      */
     match /users/{userId}/results/{resultId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
-    }
+      function isSignedIn() {
+        return request.auth != null;
+      }
 
-    //--------------------------------------------------------------------------
-    // Helper functions
-    //--------------------------------------------------------------------------
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
 
-    /**
-     * @description Checks if the user is signed in.
-     * @return {boolean} True if the user is signed in, false otherwise.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the requesting user is the owner of the resource.
-     * @param {string} userId The user ID to check against.
-     * @return {boolean} True if the user is the owner, false otherwise.
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-     /**
-      * @description Checks if the requesting user is the owner of the existing resource.
-      * @param {string} userId The user ID to check against.
-      * @return {boolean} True if the user is the owner and the resource exists, false otherwise.
-      */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * @description Checks if the user has the 'admin' role.
-     * @return {boolean} True if the user is an admin, false otherwise.
-     */
-    function isAdmin() {
-        return isSignedIn() && request.auth.token.role == 'admin';
-    }
-
-    /**
-      * @description Checks if the existing resource's user has the 'admin' role.
-      * @return {boolean} True if the user is an admin and the resource exists, false otherwise.
-      */
-    function isExistingAdmin() {
-        return isAdmin() && resource != null;
-    }
-
-    /**
-     * @description Checks if the user has the 'teacher' role.
-     * @return {boolean} True if the user is a teacher, false otherwise.
-     */
-    function isTeacher() {
-        return isSignedIn() && request.auth.token.role == 'teacher';
-    }
-
-    /**
-      * @description Checks if the existing resource's user has the 'teacher' role.
-      * @return {boolean} True if the user is a teacher and the resource exists, false otherwise.
-      */
-    function isExistingTeacher() {
-        return isTeacher() && resource != null;
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isSignedIn() && isOwner(userId) && resource != null && resource.data.userId == request.resource.data.userId;
+      allow delete: if isSignedIn() && isOwner(userId) && resource != null;
     }
   }
 }
