@@ -106,23 +106,19 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
     if (!firestore || !auth) return;
     setLoading(true);
 
-    // The temporary app logic was causing internal Firestore errors.
-    // We should use the main app's auth instance for creating users,
-    // but this will sign the admin out. The proper way to handle this
-    // is with a server-side function (e.g., Firebase Cloud Function)
-    // that uses the Admin SDK. For this client-only implementation,
-    // we accept that the admin will be temporarily signed out and then
-    // can sign back in. A more robust solution would require backend changes.
-
     try {
       if (mode === 'add') {
         if (!values.password) {
           throw new Error('Password is required to create a new user.');
         }
 
-        // NOTE: This will sign the current admin out. This is a limitation
-        // of the client-side SDK. A server-side solution is recommended for
-        // seamless multi-user management.
+        // NOTE: This implementation has a known limitation with the client-side SDK.
+        // Creating a user with createUserWithEmailAndPassword will sign the current admin out.
+        // The recommended approach for seamless multi-user management is using a server-side
+        // function (e.g., a Firebase Cloud Function with the Admin SDK) that handles user creation.
+        // For this client-only prototype, we accept this limitation. The admin will need
+        // to sign back in after creating a new user.
+
         const userCredential = await createUserWithEmailAndPassword(
           auth,
           values.email,
@@ -153,7 +149,6 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
         const updatedData = {
           displayName: values.displayName,
           role: values.role,
-
           nationality: values.nationality,
         };
         updateDocumentNonBlocking(userDocRef, updatedData);
