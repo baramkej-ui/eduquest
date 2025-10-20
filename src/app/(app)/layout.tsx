@@ -5,11 +5,11 @@ import AppSidebar from '@/components/layout/app-sidebar';
 import GlobalLoader from '@/components/layout/global-loader';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { useDoc, useFirestore, useUser, useMemoFirebase, useAuth } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { createContext, useContext, useEffect } from 'react';
 import type { User as AppUser } from '@/types/user';
-import { doc } from 'firebase/firestore';
 
 const AppUserContext = createContext<AppUser | null>(null);
 
