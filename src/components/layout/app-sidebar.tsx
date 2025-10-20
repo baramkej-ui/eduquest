@@ -30,7 +30,7 @@ const adminNav = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/level-test', label: 'Level Test', icon: GraduationCap },
     { href: '/learning', label: 'Learning', icon: Library },
-    { href: '/users', label: 'Users', icon: Users },
+    { href: '/users', label: 'Users', icon: Users, adminOnly: true },
 ];
 
 
@@ -52,6 +52,8 @@ export default function AppSidebar({ user }: { user: User }) {
     }
   };
 
+  const navItems = adminNav.filter(item => !item.adminOnly || user.role === 'admin');
+
   return (
     <Sidebar>
       <SidebarHeader className="border-b">
@@ -62,7 +64,7 @@ export default function AppSidebar({ user }: { user: User }) {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-          {adminNav.map((item) => (
+          {navItems.map((item) => (
             <SidebarMenuItem key={item.href}>
               <Link href={item.href}>
                 <SidebarMenuButton

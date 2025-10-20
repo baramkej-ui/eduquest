@@ -13,7 +13,7 @@ import { doc } from 'firebase/firestore';
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user: firebaseUser, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   const userDocRef = useMemoFirebase(
     () => (firestore && firebaseUser ? doc(firestore, 'users', firebaseUser.uid) : null),
@@ -22,25 +22,43 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   
   const { data: appUser, isLoading: isAppUserLoading } = useDoc<AppUser>(userDocRef);
   
-  const router = useRouter();
-  
   useEffect(() => {
-    const isAuthLoading = isUserLoading || isAppUserLoading;
-    if (!isAuthLoading) {
-      if (!firebaseUser || !appUser) {
-        router.push('/');
-      } else {
-        setLoading(false);
-      }
+    // Wait until the initial user loading from Firebase Auth is complete.
+    if (isUserLoading) {
+      return;
     }
+
+    // If there's no authenticated user, redirect to login.
+    if (!firebaseUser) {
+      router.push('/');
+      return;
+    }
+
+    // If we are still loading the app-specific user data from Firestore, do nothing yet.
+    if (isAppUserLoading) {
+      return;
+    }
+
+    // If after loading, there is still no app user, it might be a new user
+    // or data hasn't been created yet. For this app, we assume it's an error
+    // or they shouldn't be here, so we redirect.
+    // A more robust app might redirect to a profile creation page.
+    if (!appUser) {
+      router.push('/');
+    }
+
   }, [firebaseUser, appUser, isUserLoading, isAppUserLoading, router]);
 
-  if (loading || isUserLoading || isAppUserLoading) {
+  // Show a global loader while either Firebase Auth is initializing or
+  // we are fetching the user's profile from Firestore.
+  if (isUserLoading || isAppUserLoading) {
     return <GlobalLoader />;
   }
 
+  // If after all loading, there's no appUser, it means the redirect is in progress
+  // or something went wrong. Returning null prevents rendering the layout.
   if (!appUser) {
-    return null;
+    return <GlobalLoader />;
   }
 
   return (

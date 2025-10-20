@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { useCollection, WithId } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
-import { useFirestore, useMemoFirebase } from '@/firebase';
+import { useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -23,20 +23,43 @@ import {
 } from '@/components/ui/table';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { User } from '@/types/user';
+import type { User as AppUser } from '@/types/user';
+import { doc, getDoc } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
 
 export default function UsersPage() {
   const firestore = useFirestore();
+  const { user: firebaseUser } = useUser();
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const [isCurrentUserLoading, setIsCurrentUserLoading] = useState(true);
+
+  useEffect(() => {
+    if (firestore && firebaseUser) {
+      const userDocRef = doc(firestore, 'users', firebaseUser.uid);
+      getDoc(userDocRef).then((docSnap) => {
+        if (docSnap.exists()) {
+          setCurrentUser(docSnap.data() as AppUser);
+        }
+        setIsCurrentUserLoading(false);
+      });
+    } else {
+      setIsCurrentUserLoading(false);
+    }
+  }, [firestore, firebaseUser]);
+  
+  const isAdmin = currentUser?.role === 'admin';
 
   const usersQuery = useMemoFirebase(
     () =>
-      firestore
+      firestore && isAdmin
         ? query(collection(firestore, 'users'))
         : null,
-    [firestore]
+    [firestore, isAdmin]
   );
 
-  const { data: users, isLoading } = useCollection<User>(usersQuery);
+  const { data: users, isLoading: areUsersLoading } = useCollection<AppUser>(usersQuery);
+  
+  const isLoading = isCurrentUserLoading || areUsersLoading;
 
   const getAvatar = (index: number) => {
     const avatarId = `student-avatar-${(index % 4) + 1}`;
@@ -93,7 +116,14 @@ export default function UsersPage() {
                     </TableCell>
                   </TableRow>
                 ))}
-              {!isLoading &&
+              {!isLoading && !isAdmin && (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center text-muted-foreground">
+                    You do not have permission to view users.
+                  </TableCell>
+                </TableRow>
+              )}
+              {!isLoading && isAdmin &&
                 users?.map((user, index) => (
                   <TableRow key={user.id}>
                     <TableCell>
@@ -121,6 +151,13 @@ export default function UsersPage() {
                     <TableCell className="text-right font-mono text-xs">{user.id}</TableCell>
                   </TableRow>
                 ))}
+                 {!isLoading && isAdmin && users?.length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={3} className="text-center text-muted-foreground">
+                            No users found.
+                        </TableCell>
+                    </TableRow>
+                 )}
             </TableBody>
           </Table>
         </CardContent>
