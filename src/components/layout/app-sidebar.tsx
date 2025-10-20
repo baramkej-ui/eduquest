@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Library,
   Settings,
+  User as UserIcon,
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -62,6 +63,17 @@ export default function AppSidebar({ user }: { user: User }) {
       </SidebarContent>
       <SidebarFooter className="border-t">
         <SidebarMenu>
+          <SidebarMenuItem>
+             <Link href="/profile">
+                <SidebarMenuButton
+                  isActive={pathname.startsWith('/profile')}
+                  className="w-full justify-start"
+                >
+                  <UserIcon />
+                  <span>Profile</span>
+                </SidebarMenuButton>
+              </Link>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton className="w-full justify-start">
               <Settings />

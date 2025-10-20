@@ -1,6 +1,5 @@
 'use client';
 
-import { useMemo } from 'react';
 import { useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
@@ -25,6 +24,7 @@ import {
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { User as AppUser } from '@/types/user';
+import type { WithId } from '@/firebase/firestore/use-collection';
 
 export default function UsersPage() {
   const firestore = useFirestore();
@@ -39,7 +39,7 @@ export default function UsersPage() {
     [firestore, isAdmin]
   );
 
-  const { data: users, isLoading } = useCollection<AppUser>(usersQuery);
+  const { data: users, isLoading } = useCollection<WithId<AppUser>>(usersQuery);
   
   const getAvatar = (index: number) => {
     const avatarId = `student-avatar-${(index % 4) + 1}`;
@@ -72,7 +72,6 @@ export default function UsersPage() {
               <TableRow>
                 <TableHead className="w-[300px]">User</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead className="text-right">UID</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -91,14 +90,11 @@ export default function UsersPage() {
                     <TableCell>
                       <Skeleton className="h-6 w-16" />
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Skeleton className="h-4 w-32 ml-auto" />
-                    </TableCell>
                   </TableRow>
                 ))}
               {!isLoading && !isAdmin && (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  <TableCell colSpan={2} className="text-center text-muted-foreground">
                     You do not have permission to view users.
                   </TableCell>
                 </TableRow>
@@ -128,12 +124,11 @@ export default function UsersPage() {
                      <TableCell>
                       <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="capitalize">{user.role}</Badge>
                     </TableCell>
-                    <TableCell className="text-right font-mono text-xs">{user.id}</TableCell>
                   </TableRow>
                 ))}
                  {!isLoading && isAdmin && users?.length === 0 && (
                     <TableRow>
-                        <TableCell colSpan={3} className="text-center text-muted-foreground">
+                        <TableCell colSpan={2} className="text-center text-muted-foreground">
                             No administrators found.
                         </TableCell>
                     </TableRow>

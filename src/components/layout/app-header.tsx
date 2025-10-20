@@ -14,8 +14,9 @@ import {
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { LogOut } from 'lucide-react';
+import { LogOut, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function AppHeader() {
   const appUser = useAppUser();
@@ -78,6 +79,12 @@ export default function AppHeader() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem asChild className="cursor-pointer">
+                <Link href="/profile">
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={handleLogout}
                 className="cursor-pointer"
