@@ -1,9 +1,9 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useCollection, useMemoFirebase } from '@/firebase';
+import { useCollection } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useMemoFirebase } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/table';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { User } from '@/providers/auth-provider';
+import type { User } from '@/types/user';
 
 export default function UsersPage() {
   const firestore = useFirestore();
@@ -37,7 +37,7 @@ export default function UsersPage() {
   );
 
   const { data: users, isLoading } = useCollection<
-    Omit<User, 'uid'> & { role: 'admin' | 'teacher' | 'student' }
+    Omit<User, 'uid'> & { role: 'admin' | 'teacher' | 'student', id: string }
   >(usersQuery);
 
   const getAvatar = (index: number) => {
