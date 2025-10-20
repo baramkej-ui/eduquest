@@ -1,100 +1,111 @@
 /**
- * @fileoverview Firestore Security Rules for EduQuest application.
+ * @description This ruleset enforces a strict user-ownership model for user-specific data and role-based access for global data.
+ * All write operations are protected by authorization checks, while read access is carefully controlled based on the data's purpose and user roles.
  *
- * Core Philosophy:
- * This ruleset enforces a user-ownership model for user-specific data (results),
- * restricts user listing, and provides role-based access for managing problems.
+ * @dataStructure
+ * - `/users/{userId}`: Stores user profiles, accessible only to the user themselves, or to anyone in a "admin" role.
+ * - `/problems/{problemId}`: Stores educational problems, accessible to anyone for reading, but only writable by "admin" or "teacher" roles.
+ * - `/users/{userId}/results/{resultId}`: Stores user-specific results. Only the user who owns the result can modify it.
  *
- * Data Structure:
- * - /users/{userId}: Stores user profiles.
- * - /problems/{problemId}: Stores educational problems.
- * - /users/{userId}/results/{resultId}: Stores user-specific results.
+ * @keySecurityDecisions
+ * - Users can only list their own results. Listing of all users is denied.
+ * - The 'admin' role is all-powerful, bypassing many restrictions.
+ * - Data types are not strictly enforced beyond what's necessary for authorization.
  *
- * Key Security Decisions:
- * - User listing is denied to prevent unauthorized access to user data.
- * - Problems are publicly readable but writable only by admins and teachers.
- * - User results are accessible only to the owner and potentially admins (role-based).
+ * @denormalizationForAuthorization
+ * - The user ID is embedded in the path for the /users/{userId}/results/{resultId} collection, enabling path-based ownership checks without additional reads.
  *
- * Denormalization for Authorization:
- *  - Authorization is handled via path-based ownership for user results, eliminating the need for `get()` calls.
+ * @structuralSegregation
+ * - Private user data is stored under /users/{userId}, while public problem data is stored in the top-level /problems collection.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Secure user profiles. Only the user themselves can read their profile. User listing is denied.
+     * @description Checks if the request is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the authenticated user's ID matches the provided userId.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the authenticated user has the "admin" role.
+     */
+    function isAdmin() {
+        return isSignedIn() && request.auth.token.role == 'admin';
+    }
+
+    /**
+     * @description Checks if the authenticated user has the "admin" or "teacher" role.
+     */
+     function isAdminOrTeacher() {
+        return isSignedIn() && (request.auth.token.role == 'admin' || request.auth.token.role == 'teacher');
+     }
+
+    /**
+     * @description Checks if the user is the owner and the resource exists (for update/delete).
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /***************** Users Collection *****************/
+
+    /**
+     * @description Manages user profiles, ensuring only the user or an admin can read and write their own profile.
      * @path /users/{userId}
-     * @allow (get) User with matching ID can read their own profile.
-     * @deny (get) User tries to read another user's profile.
-     * @allow (create) User can create their own profile with a matching ID.
-     * @deny (create) User attempts to create a profile with a mismatched ID.
-     * @allow (update) User can update their own profile with a matching ID.
-     * @deny (update) User attempts to update a profile with a mismatched ID or a non-existent profile.
-     * @allow (delete) User can delete their own profile with a matching ID.
-     * @deny (delete) User attempts to delete a profile with a mismatched ID or a non-existent profile.
-     * @principle Enforces document ownership for reads and writes, restricts user listing.
+     * @allow (get, update, delete) if the user is signed in and owns the profile (userId matches auth.uid).
+     * @allow (create) if the user is signed in and the userId matches auth.uid (self-creation).
+     * @deny (create, update, delete) if the user is not signed in or does not own the profile.
+     * @principle Enforces document ownership and authenticated access.
      */
     match /users/{userId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if false; // Listing users is not permitted.
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId) || isAdmin();
+      allow delete: if isExistingOwner(userId) || isAdmin();
     }
 
+    /***************** Problems Collection *****************/
+
     /**
-     * @description Secure educational problems. Problems are publicly readable, but only teachers/admins can create/update/delete.
+     * @description Manages educational problems, allowing public read access but restricting write access to admins and teachers.
      * @path /problems/{problemId}
-     * @allow (get) Anyone can read a problem.
-     * @allow (list) Anyone can list problems.
-     * @deny (create) Non-admin/teacher attempts to create a problem.
-     * @deny (update) Non-admin/teacher attempts to update a problem.
-     * @deny (delete) Non-admin/teacher attempts to delete a problem.
-     * @principle Public read with owner-only writes, restricts modification to admins and teachers.
+     * @allow (get, list) any signed in user can read problems.
+     * @allow (create, update, delete) only admins and teachers can create, update, or delete problems.
+     * @deny (create, update, delete) if the user is not an admin or a teacher.
+     * @principle Public read access with role-based write control.
      */
     match /problems/{problemId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow update: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-      // CRITICAL: Cannot implement owner-only writes. The 'Problem' entity is missing an 'ownerId' or 'authorId' field.
+      allow get, list: if isSignedIn();
+      allow create: if isAdminOrTeacher();
+      allow update: if isAdminOrTeacher() && resource != null;
+      allow delete: if isAdminOrTeacher() && resource != null;
     }
 
+    /***************** User Results Subcollection *****************/
+
     /**
-     * @description Secure user results. Only the user or an admin can manage their results.
+     * @description Manages user-specific results, ensuring only the user who owns the result (or an admin) can manage it.
      * @path /users/{userId}/results/{resultId}
-     * @allow (get) User with matching ID can read their own result.
-     * @deny (get) User tries to read another user's result.
-     * @allow (list) User with matching ID can list their own results.
-     * @deny (list) User tries to list another user's results.
-     * @allow (create) User with matching ID can create results for themselves.
-     * @deny (create) User attempts to create a result for another user.
-     * @allow (update) User with matching ID can update their own result.
-     * @deny (update) User attempts to update a result for another user or a non-existent result.
-     * @allow (delete) User with matching ID can delete their own result.
-     * @deny (delete) User attempts to delete a result for another user or a non-existent result.
-     * @principle Enforces document ownership for reads and writes.
+     * @allow (get, list, create, update, delete) if the user is signed in and owns the parent profile (userId matches auth.uid).
+     * @deny (create, update, delete) if the user is not signed in or does not own the parent profile.
+     * @principle Enforces path-based ownership for user results.
      */
     match /users/{userId}/results/{resultId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
   }
