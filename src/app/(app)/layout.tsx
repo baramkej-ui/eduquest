@@ -5,7 +5,7 @@ import AppSidebar from '@/components/layout/app-sidebar';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { useUser, useFirestore, useMemoFirebase, useAuth, useDoc } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { useEffect, createContext, useContext, useMemo } from 'react';
+import { useEffect, createContext, useContext } from 'react';
 import type { User as AppUser } from '@/types/user';
 import GlobalLoader from '@/components/layout/global-loader';
 import { doc } from 'firebase/firestore';
