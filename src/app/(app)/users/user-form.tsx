@@ -33,14 +33,13 @@ import { useState } from 'react';
 import {
   useFirestore,
   updateDocumentNonBlocking,
-  setDocumentNonBlocking,
-  useAuth,
+  useFirebase,
 } from '@/firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { collection, doc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import type { WithId } from '@/firebase/firestore/use-collection';
 import type { User as AppUser, UserRole } from '@/types/user';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { nationalities } from '@/types/user';
 
 const getFormSchema = (mode: 'add' | 'edit') =>
@@ -85,8 +84,7 @@ export type UserFormProps = {
 export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const firestore = useFirestore();
-  const auth = useAuth(); // Use the existing auth instance
+  const { firebaseApp, firestore } = useFirebase();
 
   const formSchema = getFormSchema(mode);
 
@@ -103,46 +101,25 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!firestore || !auth) return;
+    if (!firestore || !firebaseApp) return;
     setLoading(true);
 
     try {
       if (mode === 'add') {
-        if (!values.password) {
-          throw new Error('Password is required to create a new user.');
-        }
-
-        // NOTE: This implementation has a known limitation with the client-side SDK.
-        // Creating a user with createUserWithEmailAndPassword will sign the current admin out.
-        // The recommended approach for seamless multi-user management is using a server-side
-        // function (e.g., a Firebase Cloud Function with the Admin SDK) that handles user creation.
-        // For this client-only prototype, we accept this limitation. The admin will need
-        // to sign back in after creating a new user.
-
-        const userCredential = await createUserWithEmailAndPassword(
-          auth,
-          values.email,
-          values.password
-        );
-        const newAuthUser = userCredential.user;
-
-        const usersCollection = collection(firestore, 'users');
-        const userDocRef = doc(usersCollection, newAuthUser.uid);
-
-        const newUser: Omit<AppUser, 'id'> = {
-          displayName: values.displayName,
+        const functions = getFunctions(firebaseApp);
+        const createNewUser = httpsCallable(functions, 'createNewUser');
+        await createNewUser({
           email: values.email,
+          password: values.password,
+          displayName: values.displayName,
           role: values.role,
           nationality: values.nationality,
-        };
-
-        setDocumentNonBlocking(userDocRef, newUser, {});
+        });
 
         toast({
           title: 'User Added',
-          description: `${values.displayName} has been added. You may need to log in again.`,
+          description: `${values.displayName} has been added successfully.`,
         });
-        // The admin is now signed out. The main layout will handle redirection.
 
       } else if (mode === 'edit' && user) {
         const userDocRef = doc(firestore, 'users', user.id);
@@ -159,11 +136,12 @@ export function UserForm({ mode, user, onOpenChange }: UserFormProps) {
       }
       onOpenChange(false); // Close dialog on success
     } catch (error: any) {
+      console.error("Error submitting form:", error);
       toast({
         variant: 'destructive',
         title: `Failed to ${mode} user`,
         description:
-          error.code === 'auth/email-already-in-use'
+          error.message.includes('email-already-exists')
             ? 'This email is already in use by another account.'
             : error.message || 'An unexpected error occurred.',
       });
