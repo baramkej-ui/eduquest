@@ -4,12 +4,13 @@ import AppHeader from '@/components/layout/app-header';
 import AppSidebar from '@/components/layout/app-sidebar';
 import GlobalLoader from '@/components/layout/global-loader';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { useDoc, useFirestore, useUser, useMemoFirebase, useAuth } from '@/firebase';
+import { useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { createContext, useContext, useEffect } from 'react';
 import type { User as AppUser } from '@/types/user';
 import { doc } from 'firebase/firestore';
+import { useAuth } from '@/firebase';
 
 const AppUserContext = createContext<AppUser | null>(null);
 
@@ -60,26 +61,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isLoading = isUserLoading || isAppUserLoading;
 
   useEffect(() => {
-    // 로딩 중이거나, 이미 firebaseUser가 없는 상태(로그아웃 진행 등)일 때는 아무것도 하지 않음.
-    if (isLoading || firebaseUser) {
+    // 로딩 중이거나, 이미 유효한 사용자가 있는 경우는 아무것도 하지 않음.
+    if (isLoading || (firebaseUser && appUser?.role === 'admin')) {
       return;
     }
 
-    // 로딩이 끝났는데 firebaseUser가 없는 경우 (인증되지 않은 상태)
-    if (!firebaseUser) {
-      router.push('/');
-    }
-  }, [isLoading, firebaseUser, router]);
-
-
-  useEffect(() => {
-    if (isLoading) return;
-
-    // 로딩이 끝난 후, firebaseUser는 있지만 appUser가 없거나 role이 admin이 아닌 경우
-    if (firebaseUser && (!appUser || appUser.role !== 'admin')) {
+    // 로딩이 끝났지만, 인증되지 않았거나 관리자가 아닌 경우
+    if (!isLoading) {
       if (auth) {
         signOut(auth);
       }
+      router.push('/');
     }
   }, [isLoading, firebaseUser, appUser, auth, router]);
 

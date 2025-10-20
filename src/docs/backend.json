@@ -23,6 +23,11 @@
           "type": "string",
           "description": "Display name of the user."
         },
+        "photoURL": {
+          "type": "string",
+          "description": "URL of the user's profile picture.",
+          "format": "uri"
+        },
         "nationality": {
           "type": "string",
           "description": "Nationality of the user."
