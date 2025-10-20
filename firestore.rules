@@ -1,120 +1,79 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for user-specific data and restricts access to problems based on user roles. An admin user (PWsFb5BMbKa6xu9VPeVKhiJH2MF2) is granted full access to all data.
- *
- * Data Structure:
- * - /users/{userId}: Stores user profiles, accessible only by the user themselves or the admin.
- * - /problems/{problemId}: Stores educational problems, accessible to everyone, but manageable only by the admin.
- * - /users/{userId}/results/{resultId}: Stores user-specific results, accessible only by the user themselves or the admin.
- *
- * Key Security Decisions:
- * - The admin user (PWsFb5BMbKa6xu9VPeVKhiJH2MF2) bypasses all other rules and has full CRUD access.
- * - User listing is allowed only for the admin.
- * - Read operations are generally open where appropriate, with write operations restricted to owners or the admin.
- *
- * Denormalization for Authorization:
- * - The 'Result' entity contains both 'userId' and 'problemId', avoiding the need for chained 'get()' calls to authorize access.
- *
- * Structural Segregation:
- * - User-specific results are stored in a subcollection, enabling secure and efficient list operations.
+ * @description This ruleset enforces a user-ownership model for user profiles and results,
+ *              while providing admin access to all data and public read access to problems.
+ * @dataStructure
+ *   - /users/{userId}: Stores user profiles, accessible only to the user and admins.
+ *   - /problems/{problemId}: Stores educational problems, publicly readable, but manageable only by admins.
+ *   - /users/{userId}/results/{resultId}: Stores user-specific results, accessible only to the user and admins.
+ * @keySecurityDecisions
+ *   - User listing is restricted to admins.
+ *   - Public read access is granted to the /problems collection.
+ *   - Data validation is minimal to allow for rapid prototyping and flexible data shapes.
+ * @denormalizationForAuthorization None.  Sufficient path-based authorization is in place.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     // Helper Functions
-    /**
-     * @description Checks if the user is signed in.
-     * @return {bool} True if the user is signed in, false otherwise.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * @description Checks if the user is the owner of the resource.
-     * @param {string} userId - The user ID to compare against the request's authentication UID.
-     * @return {bool} True if the user is the owner, false otherwise.
-     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /**
-     * @description Checks if the user is the specified admin.
-     * @return {bool} True if the user is the admin, false otherwise.
-     */
     function isAdmin() {
       return isSignedIn() && request.auth.uid == 'PWsFb5BMbKa6xu9VPeVKhiJH2MF2';
     }
 
     /**
-     * @description Checks if the user is the owner of the existing resource.
-     * @param {string} userId - The user ID to compare against the resource's ID.
-     * @return {bool} True if the user is the owner and the resource exists, false otherwise.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * @description Rule for documents.
+     * @description Manages user profiles, accessible only to the user and admins.
      * @path /users/{userId}
-     * @allow (create) User with ID 'user123' can create their own profile.
-     *   - auth.uid: 'user123'
-     *   - request.resource.data.id: 'user123'
-     * @allow (get) User with ID 'user123' can read their own profile.
-     *   - auth.uid: 'user123'
-     * @deny (create) User with ID 'user123' cannot create a profile with ID 'otherUser'.
-     *   - auth.uid: 'user123'
-     *   - request.resource.data.id: 'otherUser'
-     * @principle Enforces document ownership and allows self-creation.
+     * @allow (get) User 'user123' can read their own profile.
+     * @allow (create) User 'user123' can create their profile if the ID matches.
+     * @deny (get) User 'user456' cannot read 'user123' profile.
+     * @principle Enforces document ownership for reads and writes.
      */
     match /users/{userId} {
       allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
       allow list: if isAdmin();
       allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) || isAdmin();
-      allow delete: if isExistingOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
     }
 
     /**
-     * @description Rules for problems.
+     * @description Manages educational problems, publicly readable, but manageable only by admins.
      * @path /problems/{problemId}
-     * @allow (get) Any signed-in user can read a problem.
-     *   - auth.uid: 'user123'
-     * @allow (create) The admin user can create a problem.
-     *   - auth.uid: 'PWsFb5BMbKa6xu9VPeVKhiJH2MF2'
-     * @deny (create) A regular user cannot create a problem.
-     *   - auth.uid: 'user123'
-     * @principle Allows public reads and restricts writes to the admin.
+     * @allow (get) Any user can read a problem.
+     * @allow (list) Any user can list problems.
+     * @allow (create) Admin can create a problem.
+     * @deny (create) Non-admin users cannot create problems.
+     * @principle Public read access with owner-only (admin) writes.
      */
     match /problems/{problemId} {
       allow get, list: if true;
       allow create: if isAdmin();
-      allow update: if isAdmin() && resource != null;
-      allow delete: if isAdmin() && resource != null;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     /**
-     * @description Rules for user results.
+     * @description Stores user-specific results, accessible only to the user and admins.
      * @path /users/{userId}/results/{resultId}
-     * @allow (create) User with ID 'user123' can create a result under their profile.
-     *   - auth.uid: 'user123'
-     *   - request.resource.data.userId: 'user123'
-     * @allow (get) User with ID 'user123' can read their own result.
-     *   - auth.uid: 'user123'
-     * @deny (create) User with ID 'user123' cannot create a result under another user's profile.
-     *   - auth.uid: 'user123'
-     *   - request.resource.data.userId: 'otherUser'
-     * @principle Enforces path-based ownership for results.
+     * @allow (get) User 'user123' can read their own result.
+     * @allow (create) User 'user123' can create a result under their ID.
+     * @deny (get) User 'user456' cannot read 'user123' results.
+     * @principle Enforces document ownership via path for reads and writes.
      */
     match /users/{userId}/results/{resultId} {
       allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
       allow list: if isSignedIn() && (isOwner(userId) || isAdmin());
       allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) || isAdmin();
-      allow delete: if isExistingOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
     }
   }
 }
