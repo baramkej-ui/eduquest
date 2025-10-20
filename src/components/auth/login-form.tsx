@@ -20,9 +20,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { useAuth, useFirestore } from '@/firebase';
-import type { UserRole } from '@/types/user';
+import { useAuth } from '@/firebase';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }),
@@ -36,7 +34,6 @@ export default function LoginForm() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const auth = useAuth();
-  const firestore = useFirestore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -48,7 +45,7 @@ export default function LoginForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setLoading(true);
-    if (!auth || !firestore) {
+    if (!auth) {
       toast({
         variant: 'destructive',
         title: 'Login Failed',
@@ -59,39 +56,18 @@ export default function LoginForm() {
     }
 
     try {
-      const userCredential = await signInWithEmailAndPassword(
+      await signInWithEmailAndPassword(
         auth,
         values.email,
         values.password
       );
-      const user = userCredential.user;
-
-      const userDocRef = doc(firestore, 'users', user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      let role: UserRole = 'student'; // Default role
-      if (userDoc.exists()) {
-        role = userDoc.data().role;
-      }
 
       toast({
         title: 'Login Successful',
-        description: `Welcome back! Redirecting you to your dashboard.`,
+        description: `Welcome back! Redirecting you to the dashboard.`,
       });
 
-      switch (role) {
-        case 'admin':
-          router.push('/dashboard');
-          break;
-        case 'teacher':
-          router.push('/students');
-          break;
-        case 'student':
-          router.push('/problems');
-          break;
-        default:
-          router.push('/problems');
-      }
+      router.push('/dashboard');
     } catch (error: any) {
       console.error(error);
       toast({

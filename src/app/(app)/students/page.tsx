@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import {
   Table,
   TableBody,
@@ -26,53 +25,20 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { User } from '@/providers/auth-provider';
 
-// This component can be extended to fetch and calculate real progress
-function StudentProgress({ userId }: { userId: string }) {
-  // Mock data for now
-  const progress = Math.floor(Math.random() * 100);
-  const accuracy = Math.floor(Math.random() * 40) + 60;
-  const lastActivity = `${Math.floor(Math.random() * 59) + 1} minutes ago`;
-
-  return (
-    <>
-      <TableCell>
-        <div className="flex items-center gap-2">
-          <Progress value={progress} className="w-24" />
-          <span className="text-sm text-muted-foreground">{progress}%</span>
-        </div>
-      </TableCell>
-      <TableCell className="text-center">
-        <Badge
-          variant={
-            accuracy > 80
-              ? 'default'
-              : accuracy > 60
-              ? 'outline'
-              : 'destructive'
-          }
-        >
-          {accuracy}%
-        </Badge>
-      </TableCell>
-      <TableCell className="text-right">{lastActivity}</TableCell>
-    </>
-  );
-}
-
-export default function StudentsPage() {
+export default function UsersPage() {
   const firestore = useFirestore();
 
-  const studentsQuery = useMemoFirebase(
+  const usersQuery = useMemoFirebase(
     () =>
       firestore
-        ? query(collection(firestore, 'users'), where('role', '==', 'student'))
+        ? query(collection(firestore, 'users'))
         : null,
     [firestore]
   );
 
-  const { data: students, isLoading } = useCollection<
-    Omit<User, 'role' | 'uid'>
-  >(studentsQuery);
+  const { data: users, isLoading } = useCollection<
+    Omit<User, 'uid'> & { role: 'admin' | 'teacher' | 'student' }
+  >(usersQuery);
 
   const getAvatar = (index: number) => {
     const avatarId = `student-avatar-${(index % 4) + 1}`;
@@ -86,27 +52,26 @@ export default function StudentsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight font-headline">
-          Students Overview
+          User Management
         </h1>
         <p className="text-muted-foreground">
-          Track the progress of your students.
+          View and manage all users in the system.
         </p>
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Student Roster</CardTitle>
+          <CardTitle>User Roster</CardTitle>
           <CardDescription>
-            A list of all students in your class.
+            A list of all registered users.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[300px]">Student</TableHead>
-                <TableHead>Progress</TableHead>
-                <TableHead className="text-center">Accuracy</TableHead>
-                <TableHead className="text-right">Last Active</TableHead>
+                <TableHead className="w-[300px]">User</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead className="text-right">UID</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -123,39 +88,39 @@ export default function StudentsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Skeleton className="h-4 w-24" />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Skeleton className="h-6 w-12 mx-auto" />
+                      <Skeleton className="h-6 w-16" />
                     </TableCell>
                     <TableCell className="text-right">
-                      <Skeleton className="h-4 w-20 ml-auto" />
+                      <Skeleton className="h-4 w-32 ml-auto" />
                     </TableCell>
                   </TableRow>
                 ))}
               {!isLoading &&
-                students?.map((student, index) => (
-                  <TableRow key={student.id}>
+                users?.map((user, index) => (
+                  <TableRow key={user.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar>
                           <AvatarImage
                             src={getAvatar(index)}
-                            alt={student.displayName || 'student'}
+                            alt={user.displayName || 'user'}
                           />
                           <AvatarFallback>
-                            {student.displayName?.charAt(0) || 'S'}
+                            {user.displayName?.charAt(0) || 'U'}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <div className="font-medium">{student.displayName}</div>
+                          <div className="font-medium">{user.displayName}</div>
                           <div className="text-sm text-muted-foreground">
-                            {student.email}
+                            {user.email}
                           </div>
                         </div>
                       </div>
                     </TableCell>
-                    <StudentProgress userId={student.id} />
+                     <TableCell>
+                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="capitalize">{user.role}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs">{user.id}</TableCell>
                   </TableRow>
                 ))}
             </TableBody>

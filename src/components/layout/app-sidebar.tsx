@@ -25,27 +25,18 @@ import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/firebase';
 
-const adminNav = [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }];
-
-const teacherNav = [
-  { href: '/students', label: 'Students', icon: Users },
-  { href: '/problems', label: 'Problems', icon: GraduationCap },
+const adminNav = [
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/students', label: 'Users', icon: Users },
+    { href: '/problems', label: 'Problems', icon: GraduationCap },
 ];
 
-const studentNav = [{ href: '/problems', label: 'Problems', icon: GraduationCap }];
 
 export default function AppSidebar({ user }: { user: User }) {
   const pathname = usePathname();
   const router = useRouter();
   const { toast } = useToast();
   const auth = useAuth();
-
-  const navItems =
-    user.role === 'admin'
-      ? adminNav
-      : user.role === 'teacher'
-      ? teacherNav
-      : studentNav;
 
   const handleLogout = async () => {
     try {
@@ -69,7 +60,7 @@ export default function AppSidebar({ user }: { user: User }) {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-          {navItems.map((item) => (
+          {adminNav.map((item) => (
             <SidebarMenuItem key={item.href}>
               <Link href={item.href} passHref>
                 <SidebarMenuButton

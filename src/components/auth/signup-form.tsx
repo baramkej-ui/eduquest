@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -19,13 +19,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore, setDocumentNonBlocking } from '@/firebase';
 import { Loader2 } from 'lucide-react';
@@ -36,7 +29,6 @@ const formSchema = z.object({
   password: z
     .string()
     .min(6, { message: 'Password must be at least 6 characters.' }),
-  role: z.enum(['student', 'teacher']),
 });
 
 export default function SignupForm() {
@@ -53,7 +45,6 @@ export default function SignupForm() {
       displayName: '',
       email: '',
       password: '',
-      role: 'student',
     },
   });
 
@@ -85,7 +76,7 @@ export default function SignupForm() {
         uid: user.uid,
         displayName: values.displayName,
         email: values.email,
-        role: values.role,
+        role: 'admin',
       };
 
       setDocumentNonBlocking(userDocRef, userData, { merge: true });
@@ -152,31 +143,6 @@ export default function SignupForm() {
                 <FormControl>
                   <Input type="password" {...field} disabled={loading} />
                 </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="role"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>I am a...</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                  disabled={loading}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select your role" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="student">Student</SelectItem>
-                    <SelectItem value="teacher">Teacher</SelectItem>
-                  </SelectContent>
-                </Select>
                 <FormMessage />
               </FormItem>
             )}
