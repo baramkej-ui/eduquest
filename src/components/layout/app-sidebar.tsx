@@ -64,9 +64,8 @@ export default function AppSidebar({ user }: { user: User }) {
         <SidebarMenu>
           {adminNav.map((item) => (
             <SidebarMenuItem key={item.href}>
-              <Link href={item.href} passHref legacyBehavior>
+              <Link href={item.href}>
                 <SidebarMenuButton
-                  as="a"
                   isActive={pathname.startsWith(item.href)}
                   className="w-full justify-start"
                 >
