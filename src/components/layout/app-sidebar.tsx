@@ -4,6 +4,7 @@ import {
   BookOpenCheck,
   GraduationCap,
   LayoutDashboard,
+  Library,
   LogOut,
   Settings,
   Users,
@@ -27,8 +28,9 @@ import { useAuth } from '@/firebase';
 
 const adminNav = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/students', label: 'Users', icon: Users },
-    { href: '/problems', label: 'Problems', icon: GraduationCap },
+    { href: '/level-test', label: 'Level Test', icon: GraduationCap },
+    { href: '/learning', label: 'Learning', icon: Library },
+    { href: '/users', label: 'Users', icon: Users },
 ];
 
 

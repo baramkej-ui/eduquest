@@ -53,17 +53,17 @@ function ProblemList({ topic }: { topic: string }) {
 }
 
 
-export default function ProblemsPage() {
+export default function LevelTestPage() {
   const topics = ['grammar', 'vocabulary', 'reading'];
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight font-headline">
-          Practice Problems
+          Level Test Problems
         </h1>
         <p className="text-muted-foreground">
-          Test your knowledge and improve your English skills.
+          Manage and review level test problems.
         </p>
       </div>
       <Tabs defaultValue="grammar" className="w-full">

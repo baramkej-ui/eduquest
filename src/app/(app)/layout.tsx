@@ -4,10 +4,10 @@ import AppHeader from '@/components/layout/app-header';
 import AppSidebar from '@/components/layout/app-sidebar';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { useUser } from '@/firebase';
-import { BookOpenCheck, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { User as AppUser } from '@/types/user';
+import GlobalLoader from '@/components/layout/global-loader';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user: firebaseUser, isUserLoading } = useUser();
@@ -19,7 +19,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (!isUserLoading) {
       if (firebaseUser) {
         // Since this is an admin-only app, we can assume the role is 'admin'.
-        // In a multi-role app, you'd fetch this from Firestore.
         setAppUser({ ...firebaseUser, role: 'admin' });
       } else {
         setAppUser(null);
@@ -35,17 +34,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [appUser, loading, router]);
   
   if (loading || isUserLoading) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
-        <div className="flex flex-col items-center gap-4">
-          <BookOpenCheck className="h-10 w-10 animate-pulse text-primary" />
-          <p className="flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading your admin space...
-          </p>
-        </div>
-      </div>
-    );
+    return <GlobalLoader />;
   }
 
   if (!appUser) {
