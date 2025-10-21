@@ -22,6 +22,8 @@ export const useAppUser = () => {
   return context;
 };
 
+// This is the main layout for the authenticated part of the app.
+// It assumes that the user is already authenticated and authorized as an admin.
 function AuthenticatedLayout({
   user,
   children,
@@ -50,6 +52,8 @@ export default function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // The root layout already confirmed the user is an admin.
+  // Here, we just need to fetch the user's data again to pass down to components.
   const { user: firebaseUser, isUserLoading } = useUser();
   const firestore = useFirestore();
 
@@ -69,9 +73,9 @@ export default function AppLayout({
     return <GlobalLoader />;
   }
 
+  // This should theoretically not be reached if the root layout is working correctly,
+  // but it's a good fallback.
   if (!appUser) {
-    // This case should be handled by the root layout redirecting to /login,
-    // but as a fallback, we can show a loader or an error.
     return <GlobalLoader />;
   }
   

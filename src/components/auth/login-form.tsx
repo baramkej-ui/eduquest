@@ -59,7 +59,7 @@ export default function LoginForm() {
         values.email,
         values.password
       );
-      // 성공 시 리디렉션은 상위 레이아웃에서 처리
+      // Redirection is now handled by the root layout based on auth state change.
     } catch (error: any) {
       const isWrongPassword = error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found';
       toast({

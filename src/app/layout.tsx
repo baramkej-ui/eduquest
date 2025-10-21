@@ -48,15 +48,11 @@ function RootContent({ children }: { children: React.ReactNode }) {
   const isLoading = isUserLoading || isAppUserLoading;
 
   useEffect(() => {
-    if (!isLoading) {
-      if (firebaseUser && appUser) {
-        if (appUser.role !== 'admin') {
-          // If user is logged in but not an admin, log them out.
-          // This can happen if their role changes while they are logged in.
-          if (auth) {
-            signOut(auth);
-          }
-        }
+    // This effect handles cases where a user's role might change while they are active.
+    // If a logged-in user is found, but they are not an admin, they will be logged out.
+    if (!isLoading && firebaseUser && appUser && appUser.role !== 'admin') {
+      if (auth) {
+        signOut(auth);
       }
     }
   }, [isLoading, firebaseUser, appUser, auth, router]);
@@ -65,12 +61,13 @@ function RootContent({ children }: { children: React.ReactNode }) {
     return <GlobalLoader />;
   }
 
-  // If user is logged in and has admin role, show the app layout.
+  // If user is logged in and has admin role, show the main app layout.
   if (firebaseUser && appUser && appUser.role === 'admin') {
     return <AppLayout>{children}</AppLayout>;
   }
 
-  // Otherwise, show the auth layout (login, signup, etc.)
+  // For all other cases (not logged in, user doc not found, not an admin),
+  // show the authentication layout (login, signup pages).
   return <AuthLayout>{children}</AuthLayout>;
 }
 
