@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
+import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -32,6 +33,7 @@ export default function LoginForm() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const auth = useAuth();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -59,8 +61,9 @@ export default function LoginForm() {
         values.email,
         values.password
       );
-      // Redirection is now handled by the root layout based on auth state change.
-      // No need to call router.push here.
+      // On success, redirect to the dashboard.
+      // The root layout will handle showing the correct layout.
+      router.push('/dashboard');
     } catch (error: any) {
       const isWrongPassword = error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found';
       toast({
