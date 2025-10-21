@@ -5,15 +5,12 @@ import { Inter, Space_Grotesk, Source_Code_Pro } from 'next/font/google';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { cn } from '@/lib/utils';
-import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
 import GlobalLoader from '@/components/layout/global-loader';
 import AppLayout from '@/app/(app)/layout';
 import AuthLayout from './(auth)/layout';
 import type { User as AppUser } from '@/types/user';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 
 const fontSans = Inter({
   subsets: ['latin'],
@@ -49,13 +46,13 @@ function RootContent({ children }: { children: React.ReactNode }) {
     return <GlobalLoader />;
   }
 
-  // If user is logged in and has admin role, show the main app layout.
+  // If user is logged in AND is an admin, show the main app layout.
   if (firebaseUser && appUser && appUser.role === 'admin') {
     return <AppLayout>{children}</AppLayout>;
   }
 
   // For all other cases (not logged in, user doc not found, not an admin),
-  // show the authentication layout (login, signup pages).
+  // show the authentication layout (which contains login, signup pages).
   return <AuthLayout>{children}</AuthLayout>;
 }
 

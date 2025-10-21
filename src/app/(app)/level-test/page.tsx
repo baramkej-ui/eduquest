@@ -11,6 +11,7 @@ import { ProblemList } from './problem-list';
 import { ProblemForm } from './problem-form';
 import { useState } from 'react';
 import { testTypes } from '@/types/test';
+import type { Test } from '@/types/test';
 
 export default function LevelTestPage() {
   const [dialogState, setDialogState] = useState<{
@@ -18,13 +19,8 @@ export default function LevelTestPage() {
     testTopic?: string;
   }>({ open: false });
 
-  // Placeholder data as the 'tests' collection doesn't exist and was causing errors.
-  const tests = [
-    { id: 'writing', title: 'Writing', totalTime: 25 },
-    { id: 'reading', title: 'Reading', totalTime: 25 },
-    { id: 'speaking', title: 'Speaking', totalTime: 15 },
-    { id: 'listening', title: 'Listening', totalTime: 15 },
-  ];
+  // Use static data from types/test.ts
+  const tests: Test[] = testTypes.map(tt => ({ ...tt, totalTime: 25 })); // Assuming a default time for now
 
   const getTestTime = (topic: string) => {
     return tests?.find((t) => t.id === topic)?.totalTime || 0;
