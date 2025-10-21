@@ -4,6 +4,7 @@ export type Test = {
   id: string;
   title: string;
   totalTime: number; // in minutes
+  icon: LucideIcon;
 };
 
 export const testTypes: {

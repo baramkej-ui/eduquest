@@ -19,8 +19,8 @@ export default function LevelTestPage() {
     testTopic?: string;
   }>({ open: false });
 
-  // Use static data from types/test.ts
-  const tests: Test[] = testTypes.map(tt => ({ ...tt, totalTime: 25 })); // Assuming a default time for now
+  // Use static data from types/test.ts directly
+  const tests: Test[] = testTypes.map(tt => ({ ...tt, totalTime: 25 })); 
 
   const getTestTime = (topic: string) => {
     return tests?.find((t) => t.id === topic)?.totalTime || 0;
@@ -40,7 +40,7 @@ export default function LevelTestPage() {
       </div>
 
       <Accordion type="single" collapsible className="w-full space-y-4">
-        {testTypes.map((testType) => (
+        {tests.map((testType) => (
           <AccordionItem
             key={testType.id}
             value={testType.id}
@@ -49,6 +49,7 @@ export default function LevelTestPage() {
             <AccordionTrigger className="p-6 hover:no-underline">
               <div className="flex w-full items-center justify-between">
                 <div className="flex items-center gap-4">
+                   {/* Since icon is a component, it needs to be rendered as one */}
                   <testType.icon className="h-8 w-8 text-primary" />
                   <div className="text-left">
                     <h3 className="text-xl font-semibold font-headline">
