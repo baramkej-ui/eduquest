@@ -84,9 +84,13 @@ exports.syncUserRole = onDocumentWritten('users/{userId}', async (event) => {
     console.log(`Role for user ${userId} changed from '${oldRole || 'none'}' to '${newRole}'. Updating custom claims.`);
     await admin.auth().setCustomUserClaims(userId, { role: newRole });
     console.log(`Successfully set custom claims for user ${userId}.`);
+    // After updating the role, revoke tokens to force the user to re-authenticate
+    // and get the new custom claims.
+    await admin.auth().revokeRefreshTokens(userId);
+    console.log(`Successfully revoked refresh tokens for user ${userId}.`);
     return null;
   } catch (error) {
-    console.error(`Error setting custom claims for user ${userId}:`, error);
+    console.error(`Error setting custom claims or revoking tokens for user ${userId}:`, error);
     return null;
   }
 });
