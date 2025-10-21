@@ -33,8 +33,6 @@ const fontCode = Source_Code_Pro({
 function RootContent({ children }: { children: React.ReactNode }) {
   const { user: firebaseUser, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const auth = useAuth();
-  const router = useRouter();
 
   const userDocRef = useMemoFirebase(
     () =>
