@@ -22,15 +22,6 @@ function AuthenticatedLayout({
   user: AppUser;
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-
-  // This effect ensures that if an authenticated user lands here, they are redirected to the dashboard.
-  useEffect(() => {
-    if (user.role === 'admin') {
-      router.push('/dashboard');
-    }
-  }, [user, router]);
-  
   return (
     <AppUserContext.Provider value={user}>
       <SidebarProvider>
@@ -51,25 +42,20 @@ function RedirectToLogin() {
   const router = useRouter();
 
   useEffect(() => {
-    // This effect runs only once when the component mounts.
+    // This component's only job is to sign out and redirect.
     if (auth) {
-      // Intentionally not awaiting this to avoid blocking
       signOut(auth);
     }
-    // Redirect to the login page.
-    router.push('/');
-    // The empty dependency array is crucial to prevent re-running.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    router.replace('/');
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Render a loader while the redirect is happening.
   return <GlobalLoader />;
 }
-
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user: firebaseUser, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const router = useRouter();
 
   const userDocRef = useMemoFirebase(
     () =>
@@ -81,18 +67,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const { data: appUser, isLoading: isAppUserLoading } = useDoc<AppUser>(userDocRef);
 
-  // This effect handles redirecting a logged-in user to the dashboard
-  useEffect(() => {
-    if (appUser && appUser.role === 'admin') {
-      // If we have the app user and they are an admin, ensure they are on the dashboard path.
-      // This handles the case where they log in and are still on the `/` page.
-      if (window.location.pathname === '/') {
-        router.push('/dashboard');
-      }
-    }
-  }, [appUser, router]);
-
-
   const isLoading = isUserLoading || isAppUserLoading;
 
   // 1. While any data is loading, show a global loader.
@@ -100,11 +74,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return <GlobalLoader />;
   }
 
-  // 2. After loading, if the user is not authenticated OR not an admin, render the redirect component.
+  // 2. After loading, if the user is not authenticated OR not an admin,
+  // render the RedirectToLogin component which will handle sign-out and redirection.
   if (!firebaseUser || !appUser || appUser.role !== 'admin') {
     return <RedirectToLogin />;
   }
   
-  // 3. If all checks pass (loading is done, user is authenticated, and is an admin), render the authenticated layout.
+  // 3. If all checks pass, render the main authenticated layout.
   return <AuthenticatedLayout user={appUser}>{children}</AuthenticatedLayout>;
 }

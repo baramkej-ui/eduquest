@@ -1,10 +1,29 @@
+'use client';
+
 import LoginForm from '@/components/auth/login-form';
 import Image from 'next/image';
 import { BookOpenCheck } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { useUser } from '@/firebase';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import GlobalLoader from '@/components/layout/global-loader';
 
 export default function LoginPage() {
   const loginBg = PlaceHolderImages.find((img) => img.id === 'login-bg');
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isUserLoading && user) {
+      router.replace('/dashboard');
+    }
+  }, [user, isUserLoading, router]);
+
+  if (isUserLoading || user) {
+    return <GlobalLoader />;
+  }
+
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">
       <div className="flex items-center justify-center py-12">
