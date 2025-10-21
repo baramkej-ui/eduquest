@@ -8,9 +8,9 @@ import { cn } from '@/lib/utils';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import GlobalLoader from '@/components/layout/global-loader';
-import AppLayout from '@/app/(app)/layout';
 import AuthLayout from './(auth)/layout';
 import type { User as AppUser } from '@/types/user';
+import { createContext, useContext } from 'react';
 
 const fontSans = Inter({
   subsets: ['latin'],
@@ -26,6 +26,15 @@ const fontCode = Source_Code_Pro({
   subsets: ['latin'],
   variable: '--font-code',
 });
+
+// 1. Create a context to hold the app user.
+const AppUserContext = createContext<AppUser | null>(null);
+
+// 2. Create a hook to easily access the context.
+export const useAppUser = () => {
+  return useContext(AppUserContext);
+};
+
 
 function RootContent({ children }: { children: React.ReactNode }) {
   const { user: firebaseUser, isUserLoading } = useUser();
@@ -46,9 +55,14 @@ function RootContent({ children }: { children: React.ReactNode }) {
     return <GlobalLoader />;
   }
 
-  // If user is logged in AND is an admin, show the main app layout.
+  // If user is logged in AND is an admin, show the main app content.
+  // The (app) group layout will provide the sidebar/header.
   if (firebaseUser && appUser && appUser.role === 'admin') {
-    return <AppLayout>{children}</AppLayout>;
+     return (
+        <AppUserContext.Provider value={appUser}>
+            {children}
+        </AppUserContext.Provider>
+    );
   }
 
   // For all other cases (not logged in, user doc not found, not an admin),

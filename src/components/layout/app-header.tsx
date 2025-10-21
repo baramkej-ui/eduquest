@@ -1,6 +1,6 @@
 'use client';
 
-import { useAppUser } from '@/app/(app)/layout';
+import { useAppUser } from '@/app/layout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
