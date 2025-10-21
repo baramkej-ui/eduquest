@@ -43,7 +43,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Problem",
       "type": "object",
-      "description": "Represents an educational problem or question.",
+      "description": "Represents an educational problem or question within a test.",
       "properties": {
         "id": {
           "type": "string",
@@ -51,15 +51,32 @@
         },
         "topic": {
           "type": "string",
-          "description": "Topic or subject of the problem."
+          "description": "The main category of the test (e.g., 'reading', 'listening')."
         },
         "difficulty": {
           "type": "string",
-          "description": "Difficulty level of the problem (e.g., 'easy', 'medium', 'hard')."
+          "enum": [
+            "easy",
+            "medium",
+            "hard"
+          ],
+          "description": "Difficulty level of the problem."
         },
         "questionText": {
           "type": "string",
           "description": "The actual question text."
+        },
+        "problemType": {
+          "type": "string",
+          "enum": [
+            "multiple-choice",
+            "fill-in-the-blank",
+            "passage-comprehension",
+            "audio-comprehension",
+            "short-answer",
+            "essay"
+          ],
+          "description": "The specific type of the problem."
         },
         "correctAnswer": {
           "type": "string",
@@ -67,18 +84,26 @@
         },
         "possibleAnswers": {
           "type": "array",
-          "description": "Possible answers including the correct one",
+          "description": "An array of possible answers for multiple-choice questions.",
           "items": {
             "type": "string"
           }
+        },
+        "passage": {
+          "type": "string",
+          "description": "A reading passage associated with the question."
+        },
+        "audioUrl": {
+          "type": "string",
+          "description": "URL to an audio file for listening questions.",
+          "format": "uri"
         }
       },
       "required": [
-        "id",
         "topic",
         "difficulty",
         "questionText",
-        "correctAnswer"
+        "problemType"
       ]
     },
     "Result": {
@@ -116,6 +141,31 @@
         "isCorrect",
         "submissionTime"
       ]
+    },
+    "Test": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Test",
+      "type": "object",
+      "description": "Represents a type of level test, like Reading or Listening.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the test (e.g., 'reading')."
+        },
+        "title": {
+          "type": "string",
+          "description": "The display title of the test (e.g., 'Reading Test')."
+        },
+        "totalTime": {
+          "type": "number",
+          "description": "The total allocated time for the test in minutes."
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "totalTime"
+      ]
     }
   },
   "auth": {
@@ -131,31 +181,29 @@
         "definition": {
           "entityName": "User",
           "schema": {
-            "$ref": "#/backend/entities/User"
+            "$ref": "#/entities/User"
           },
-          "description": "Stores user profiles.  The 'userId' parameter is the unique identifier for each user.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "Unique identifier for the user."
-            }
-          ]
+          "description": "Stores user profiles."
         }
       },
       {
-        "path": "/problems/{problemId}",
+        "path": "/tests/{testId}",
+        "definition": {
+          "entityName": "Test",
+          "schema": {
+            "$ref": "#/entities/Test"
+          },
+          "description": "Stores metadata for each level test type."
+        }
+      },
+      {
+        "path": "/tests/{testId}/problems/{problemId}",
         "definition": {
           "entityName": "Problem",
           "schema": {
-            "$ref": "#/backend/entities/Problem"
+            "$ref": "#/entities/Problem"
           },
-          "description": "Stores educational problems. The 'problemId' parameter is the unique identifier for each problem.",
-          "params": [
-            {
-              "name": "problemId",
-              "description": "Unique identifier for the problem."
-            }
-          ]
+          "description": "Stores all problems for a specific test."
         }
       },
       {
@@ -163,22 +211,12 @@
         "definition": {
           "entityName": "Result",
           "schema": {
-            "$ref": "#/backend/entities/Result"
+            "$ref": "#/entities/Result"
           },
-          "description": "Stores the results of a user attempting a problem. Path-based ownership enforces that only the user (or an admin) can manage their results. 'userId' is the user's ID, and 'resultId' is the unique identifier for the result.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "Unique identifier for the user."
-            },
-            {
-              "name": "resultId",
-              "description": "Unique identifier for the result."
-            }
-          ]
+          "description": "Stores results for each user."
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to manage users, problems, and results, ensuring role-based access control and efficient data retrieval. It leverages structural segregation and path-based ownership to simplify security rules and maintain data integrity.\n\n1.  **Users Collection:** `/users/{userId}` stores user profiles. The `role` field determines the user's authorization level.\n2.  **Problems Collection:** `/problems/{problemId}` stores educational problems.  Administrators and teachers can manage problems.\n3.  **User Results Subcollection:** `/users/{userId}/results/{resultId}` stores results for each user. This subcollection enforces ownership.\n\n**Authorization Independence (Denormalization):**\n*   The structure avoids hierarchical authorization dependencies.  Each `result` document contains all necessary information (userId and problemId) to determine authorization. No `get()` calls are required to check parent document properties.\n\n**QAPs (Rules are not Filters):**\n*   The design supports secure `list` operations because collections are structurally segregated based on data type and access control needs.\n*   Admins can `list` all users.\n*   Teachers can `list` all problems.\n*   Students can only `list` their own results in `/users/{userId}/results`.\n\n**Invariants:**\n*   Path-based ownership (`/users/{userId}/results/{resultId}`) ensures that only the user (or an admin) can modify their results.\n*   Timestamps (`submissionTime`) are enforced via rules.\n*   The structure supports the integrity of denormalized data, as there is no denormalized data required for authorization."
+    "reasoning": "The Firestore structure is updated to support distinct test types. A top-level 'tests' collection holds metadata for each test (e.g., 'reading', 'listening'), including total time. Each test document then contains a 'problems' subcollection, providing a clear, hierarchical structure for managing questions. This is more scalable and organized than a single, flat 'problems' collection."
   }
 }

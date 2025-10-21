@@ -49,9 +49,7 @@ export function ProblemCard({ problem }: { problem: Problem & {id: string} }) {
     setIsCorrect(null);
   };
   
-  const problemType = problem.possibleAnswers && problem.possibleAnswers.length > 0 
-    ? 'multiple-choice'
-    : 'fill-in-the-blank'
+  const problemType = problem.problemType;
 
   const renderAnswerInput = () => {
     switch (problemType) {
