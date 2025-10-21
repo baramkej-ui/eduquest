@@ -29,7 +29,11 @@ const formSchema = z.object({
     .min(6, { message: 'Password must be at least 6 characters.' }),
 });
 
-export default function LoginForm() {
+interface LoginFormProps {
+  onSuccess?: () => void;
+}
+
+export default function LoginForm({ onSuccess }: LoginFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -62,11 +66,8 @@ export default function LoginForm() {
         values.email,
         values.password
       );
-
-      // On successful sign-in, the onAuthStateChanged listener in the
-      // FirebaseProvider will detect the change. The AppLayout will then
-      // handle routing the user to the correct page based on their role.
-      // We no longer need to push the route from here.
+      
+      onSuccess?.();
 
     } catch (error: any) {
       const isWrongPassword = error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found';
