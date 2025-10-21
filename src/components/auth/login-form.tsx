@@ -2,7 +2,6 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -34,11 +33,9 @@ interface LoginFormProps {
 }
 
 export default function LoginForm({ onSuccess }: LoginFormProps) {
-  const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const auth = useAuth();
-
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
