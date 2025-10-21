@@ -1,5 +1,7 @@
 'use client';
 
+import { getAuth } from 'firebase/auth';
+
 import AppHeader from '@/components/layout/app-header';
 import AppSidebar from '@/components/layout/app-sidebar';
 import GlobalLoader from '@/components/layout/global-loader';
@@ -61,13 +63,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isLoading = isUserLoading || isAppUserLoading;
 
   useEffect(() => {
-    // 로딩 중이면 아무것도 하지 않음 (데이터가 완전히 로드될 때까지 대기)
+    // 로딩 중이면 아무것도 하지 않음
     if (isLoading) {
       return;
     }
 
-    // 로딩 완료 후, 인증되지 않았거나 관리자가 아닌 경우 로그아웃 후 리디렉션
-    if (!firebaseUser || (appUser && appUser.role !== 'admin')) {
+    // 로그인된 사용자의 ID 토큰을 강제로 새로고침하여 최신 커스텀 클레임을 가져옵니다.
+    if (firebaseUser) {
+      firebaseUser.getIdToken(true).catch((error) => {
+        console.error('Error refreshing ID token:', error);
+      });
+    }
+
+    // 로딩 완료 후, 인증되지 않았거나 앱 사용자 정보가 없거나 역할이 'admin'이 아니면 로그아웃 처리
+    if (!firebaseUser || !appUser || appUser.role !== 'admin') {
       if (auth) {
         signOut(auth);
       }
@@ -75,17 +84,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [isLoading, firebaseUser, appUser, auth, router]);
 
-  // 모든 데이터가 로드될 때까지 로더 표시 (Race Condition 방지)
-  if (isLoading) {
+  // 모든 데이터가 로드될 때까지 로더 표시
+  if (isLoading || !appUser) {
     return <GlobalLoader />;
   }
 
   // 검증 통과: firebaseUser 존재, appUser 존재, role === 'admin'
-  if (firebaseUser && appUser && appUser.role === 'admin') {
+  if (firebaseUser && appUser.role === 'admin') {
     return <AuthenticatedLayout user={appUser}>{children}</AuthenticatedLayout>;
   }
 
-  // 검증 실패 시 (useEffect에서 리디렉션이 트리거되기 전) 임시 로더 표시
-  // (실제로는 useEffect가 즉시 처리되어 리디렉션됨)
+  // 그 외의 경우 (예: 권한 없는 사용자가 접근 시도) 로그인 페이지로 리디렉션될 때까지 로더 표시
   return <GlobalLoader />;
 }
