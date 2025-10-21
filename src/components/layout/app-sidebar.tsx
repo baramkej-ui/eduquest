@@ -18,7 +18,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { useAppUser } from '@/app/(app)/layout';
+import { useAppUser } from '@/app/layout';
 
 
 const adminNav = [
