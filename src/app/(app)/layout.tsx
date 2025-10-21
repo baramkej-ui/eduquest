@@ -22,6 +22,15 @@ function AuthenticatedLayout({
   user: AppUser;
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+
+  // This effect ensures that if an authenticated user lands here, they are redirected to the dashboard.
+  useEffect(() => {
+    if (user.role === 'admin') {
+      router.push('/dashboard');
+    }
+  }, [user, router]);
+  
   return (
     <AppUserContext.Provider value={user}>
       <SidebarProvider>
@@ -60,6 +69,7 @@ function RedirectToLogin() {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user: firebaseUser, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const router = useRouter();
 
   const userDocRef = useMemoFirebase(
     () =>
@@ -70,6 +80,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   );
 
   const { data: appUser, isLoading: isAppUserLoading } = useDoc<AppUser>(userDocRef);
+
+  // This effect handles redirecting a logged-in user to the dashboard
+  useEffect(() => {
+    if (appUser && appUser.role === 'admin') {
+      // If we have the app user and they are an admin, ensure they are on the dashboard path.
+      // This handles the case where they log in and are still on the `/` page.
+      if (window.location.pathname === '/') {
+        router.push('/dashboard');
+      }
+    }
+  }, [appUser, router]);
+
 
   const isLoading = isUserLoading || isAppUserLoading;
 
