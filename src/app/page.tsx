@@ -12,15 +12,15 @@ export default function RootPage() {
   useEffect(() => {
     if (!isUserLoading) {
       if (user) {
-        // 사용자가 로그인 되어 있으면 대시보드로 리디렉션
+        // User is logged in, redirect to dashboard
         router.replace('/dashboard');
       } else {
-        // 사용자가 로그인 되어 있지 않으면 로그인 페이지로 리디렉션
+        // User is not logged in, redirect to login page
         router.replace('/login');
       }
     }
   }, [isUserLoading, user, router]);
 
-  // 리디렉션이 일어나는 동안 로더를 표시
+  // Show a loader while redirecting
   return <GlobalLoader />;
 }

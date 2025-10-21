@@ -1,3 +1,5 @@
+'use client';
+
 import { ProblemGenerator } from '@/components/dashboard/problem-generator';
 import {
   Card,
