@@ -42,10 +42,12 @@ function RedirectToLogin() {
   const router = useRouter();
 
   useEffect(() => {
+    // This effect runs only once when the component mounts.
     if (auth) {
       signOut(auth);
     }
     router.push('/');
+    // The empty dependency array is crucial to prevent re-running.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -69,16 +71,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isLoading = isUserLoading || isAppUserLoading;
 
-  // While loading, show a global loader.
+  // 1. While any data is loading, show a global loader.
   if (isLoading) {
     return <GlobalLoader />;
   }
 
-  // After loading, if user is not authenticated or not an admin, redirect to login.
+  // 2. After loading, if the user is not authenticated OR not an admin, render the redirect component.
   if (!firebaseUser || !appUser || appUser.role !== 'admin') {
     return <RedirectToLogin />;
   }
   
-  // If all checks pass, render the authenticated layout.
+  // 3. If all checks pass (loading is done, user is authenticated, and is an admin), render the authenticated layout.
   return <AuthenticatedLayout user={appUser}>{children}</AuthenticatedLayout>;
 }
