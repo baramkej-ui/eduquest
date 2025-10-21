@@ -18,7 +18,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import type { User } from '@/types/user';
+import { useAppUser } from '@/app/(app)/layout';
+
 
 const adminNav = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -28,10 +29,12 @@ const adminNav = [
 ];
 
 
-export default function AppSidebar({ user }: { user: User }) {
+export default function AppSidebar() {
+  const user = useAppUser();
   const pathname = usePathname();
 
-  const navItems = adminNav.filter(item => !item.adminOnly || user.role === 'admin');
+  // Safely filter nav items, even if user is temporarily null
+  const navItems = adminNav.filter(item => !item.adminOnly || user?.role === 'admin');
 
   return (
     <Sidebar>

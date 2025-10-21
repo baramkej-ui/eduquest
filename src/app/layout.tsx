@@ -5,12 +5,15 @@ import { Inter, Space_Grotesk, Source_Code_Pro } from 'next/font/google';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { cn } from '@/lib/utils';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth } from '@/firebase';
 import { doc } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
 import GlobalLoader from '@/components/layout/global-loader';
 import AppLayout from '@/app/(app)/layout';
 import AuthLayout from './(auth)/layout';
 import type { User as AppUser } from '@/types/user';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 const fontSans = Inter({
   subsets: ['latin'],
@@ -30,6 +33,8 @@ const fontCode = Source_Code_Pro({
 function RootContent({ children }: { children: React.ReactNode }) {
   const { user: firebaseUser, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const auth = useAuth();
+  const router = useRouter();
 
   const userDocRef = useMemoFirebase(
     () =>
@@ -40,19 +45,32 @@ function RootContent({ children }: { children: React.ReactNode }) {
   );
 
   const { data: appUser, isLoading: isAppUserLoading } = useDoc<AppUser>(userDocRef);
-
   const isLoading = isUserLoading || isAppUserLoading;
 
+  useEffect(() => {
+    if (!isLoading) {
+      if (firebaseUser && appUser) {
+        if (appUser.role !== 'admin') {
+          // If user is logged in but not an admin, log them out.
+          // This can happen if their role changes while they are logged in.
+          if (auth) {
+            signOut(auth);
+          }
+        }
+      }
+    }
+  }, [isLoading, firebaseUser, appUser, auth, router]);
+  
   if (isLoading) {
     return <GlobalLoader />;
   }
 
-  // 사용자가 로그인했고, Firestore 문서가 있으며, 역할이 admin인 경우
+  // If user is logged in and has admin role, show the app layout.
   if (firebaseUser && appUser && appUser.role === 'admin') {
-    return <AppLayout user={appUser}>{children}</AppLayout>;
+    return <AppLayout>{children}</AppLayout>;
   }
 
-  // 그 외 모든 경우 (비로그인, 로딩 실패, 권한 없음 등)
+  // Otherwise, show the auth layout (login, signup, etc.)
   return <AuthLayout>{children}</AuthLayout>;
 }
 
