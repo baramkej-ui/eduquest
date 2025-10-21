@@ -44,8 +44,10 @@ function RedirectToLogin() {
   useEffect(() => {
     // This effect runs only once when the component mounts.
     if (auth) {
+      // Intentionally not awaiting this to avoid blocking
       signOut(auth);
     }
+    // Redirect to the login page.
     router.push('/');
     // The empty dependency array is crucial to prevent re-running.
     // eslint-disable-next-line react-hooks/exhaustive-deps
