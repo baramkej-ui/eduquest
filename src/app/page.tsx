@@ -1,30 +1,41 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useUser } from '@/firebase';
-import GlobalLoader from '@/components/layout/global-loader';
+import LoginForm from '@/components/auth/login-form';
+import Image from 'next/image';
+import { BookOpenCheck } from 'lucide-react';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
-/**
- * This is the entrypoint of the app.
- * It checks the auth state and redirects the user to the appropriate page.
- */
 export default function RootPage() {
-  const { user, isUserLoading } = useUser();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!isUserLoading) {
-      if (user) {
-        // User is logged in, redirect to the dashboard.
-        router.replace('/dashboard');
-      } else {
-        // User is not logged in, redirect to the login page.
-        router.replace('/login');
-      }
-    }
-  }, [isUserLoading, user, router]);
-
-  // Show a global loader while we determine the user's auth state.
-  return <GlobalLoader />;
+  const loginBg = PlaceHolderImages.find((img) => img.id === 'login-bg');
+  
+  return (
+    <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">
+      <div className="flex items-center justify-center py-12">
+        <div className="mx-auto grid w-[350px] gap-6">
+          <div className="grid gap-2 text-center">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <BookOpenCheck className="h-8 w-8 text-primary" />
+              <h1 className="text-3xl font-bold font-headline">EduQuest</h1>
+            </div>
+            <p className="text-balance text-muted-foreground">
+              Enter your email below to login to your account
+            </p>
+          </div>
+          <LoginForm />
+        </div>
+      </div>
+      <div className="hidden bg-muted lg:block">
+        {loginBg && (
+          <Image
+            src={loginBg.imageUrl}
+            alt={loginBg.description}
+            data-ai-hint={loginBg.imageHint}
+            width="1200"
+            height="1800"
+            className="h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+          />
+        )}
+      </div>
+    </div>
+  );
 }

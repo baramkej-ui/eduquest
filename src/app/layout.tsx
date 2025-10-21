@@ -11,7 +11,6 @@ import GlobalLoader from '@/components/layout/global-loader';
 import AppLayout from '@/app/(app)/layout';
 import AuthLayout from './(auth)/layout';
 import type { User as AppUser } from '@/types/user';
-import LoginPage from './(auth)/login/page';
 
 const fontSans = Inter({
   subsets: ['latin'],

@@ -47,7 +47,10 @@ export default function AppLayout({
     return <GlobalLoader />;
   }
 
-  if (!appUser) {
+  // This check is a safeguard, although RootLayout should prevent non-admins from reaching here.
+  if (!appUser || appUser.role !== 'admin') {
+    // Render a loader or a "not authorized" message while redirecting.
+    // In a real app, you might trigger a redirect back to login here.
     return <GlobalLoader />;
   }
   
