@@ -60,6 +60,7 @@ export default function LoginForm() {
         values.password
       );
       // Redirection is now handled by the root layout based on auth state change.
+      // No need to call router.push here.
     } catch (error: any) {
       const isWrongPassword = error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found';
       toast({

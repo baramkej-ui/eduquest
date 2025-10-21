@@ -41,7 +41,7 @@ function RootContent({ children }: { children: React.ReactNode }) {
 
   const { data: appUser, isLoading: isAppUserLoading } = useDoc<AppUser>(userDocRef);
   const isLoading = isUserLoading || isAppUserLoading;
-  
+
   if (isLoading) {
     return <GlobalLoader />;
   }
@@ -52,10 +52,9 @@ function RootContent({ children }: { children: React.ReactNode }) {
   }
 
   // For all other cases (not logged in, user doc not found, not an admin),
-  // show the authentication layout (which contains login, signup pages).
+  // show the authentication layout (which will contain the login page).
   return <AuthLayout>{children}</AuthLayout>;
 }
-
 
 export default function RootLayout({
   children,
