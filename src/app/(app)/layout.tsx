@@ -15,10 +15,6 @@ const AppUserContext = createContext<AppUser | null>(null);
 
 export const useAppUser = () => useContext(AppUserContext);
 
-/**
- * 이 컴포넌트는 모든 인증 및 권한 부여가 확인된 후에만 렌더링됩니다.
- * 검증된 appUser 객체를 prop으로 받아 컨텍스트와 UI를 설정합니다.
- */
 function AuthenticatedLayout({
   user,
   children,
@@ -41,11 +37,25 @@ function AuthenticatedLayout({
   );
 }
 
+function RedirectToLogin() {
+  const auth = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (auth) {
+      signOut(auth);
+    }
+    router.push('/');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return <GlobalLoader />;
+}
+
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user: firebaseUser, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const auth = useAuth();
-  const router = useRouter();
 
   const userDocRef = useMemoFirebase(
     () =>
@@ -59,30 +69,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isLoading = isUserLoading || isAppUserLoading;
 
-  // Effect for handling auth state
-  useEffect(() => {
-    // First, handle token refresh if user is logged in
-    if (firebaseUser) {
-      firebaseUser.getIdToken(true).catch((error) => {
-        console.error('Error refreshing ID token:', error);
-      });
-    }
-
-    // After all loading is complete, check for authentication and authorization.
-    if (!isLoading) {
-      if (!firebaseUser || !appUser || appUser.role !== 'admin') {
-        if (auth) {
-          signOut(auth);
-        }
-        router.push('/');
-      }
-    }
-  }, [isLoading, firebaseUser, appUser, auth, router]);
-
-  // Show loader until all data is loaded and verified.
-  // This is the crucial check: we only proceed if loading is false AND we have a valid admin user.
-  if (isLoading || !appUser || !firebaseUser || appUser.role !== 'admin') {
+  // While loading, show a global loader.
+  if (isLoading) {
     return <GlobalLoader />;
+  }
+
+  // After loading, if user is not authenticated or not an admin, redirect to login.
+  if (!firebaseUser || !appUser || appUser.role !== 'admin') {
+    return <RedirectToLogin />;
   }
   
   // If all checks pass, render the authenticated layout.
