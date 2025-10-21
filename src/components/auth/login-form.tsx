@@ -63,9 +63,10 @@ export default function LoginForm() {
         values.password
       );
 
-      // Role checking and redirection is handled centrally in AppLayout.
-      // We just need to navigate to a protected route and let the layout handle the rest.
-      router.push('/dashboard');
+      // On successful sign-in, the onAuthStateChanged listener in the
+      // FirebaseProvider will detect the change. The AppLayout will then
+      // handle routing the user to the correct page based on their role.
+      // We no longer need to push the route from here.
 
     } catch (error: any) {
       const isWrongPassword = error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found';
