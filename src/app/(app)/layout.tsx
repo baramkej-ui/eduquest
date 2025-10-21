@@ -16,7 +16,8 @@ const AppUserContext = createContext<AppUserType | null>(null);
 export const useAppUser = () => {
   const context = useContext(AppUserContext);
   if (context === undefined) {
-    // This should not happen if used within AppLayout
+    // This can happen during initial renders or if context is missing.
+    // The component using this hook should handle the null case gracefully.
     return null; 
   }
   return context;
@@ -76,6 +77,8 @@ export default function AppLayout({
   // This should theoretically not be reached if the root layout is working correctly,
   // but it's a good fallback.
   if (!appUser) {
+    // Render a loader or a minimal state while appUser is being fetched or is null
+    // This prevents passing null to AuthenticatedLayout which expects a valid user
     return <GlobalLoader />;
   }
   

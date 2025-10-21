@@ -46,16 +46,6 @@ function RootContent({ children }: { children: React.ReactNode }) {
 
   const { data: appUser, isLoading: isAppUserLoading } = useDoc<AppUser>(userDocRef);
   const isLoading = isUserLoading || isAppUserLoading;
-
-  useEffect(() => {
-    // This effect handles cases where a user's role might change while they are active.
-    // If a logged-in user is found, but they are not an admin, they will be logged out.
-    if (!isLoading && firebaseUser && appUser && appUser.role !== 'admin') {
-      if (auth) {
-        signOut(auth);
-      }
-    }
-  }, [isLoading, firebaseUser, appUser, auth, router]);
   
   if (isLoading) {
     return <GlobalLoader />;
