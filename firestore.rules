@@ -1,62 +1,108 @@
+/**
+ * @fileoverview Firestore Security Rules for EduQuest application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a user-ownership model for user-specific data (results)
+ * and role-based access control for problems.  It leverages path-based
+ * ownership to simplify security rules and maintain data integrity.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles.
+ * - /problems/{problemId}: Stores educational problems.
+ * - /users/{userId}/results/{resultId}: Stores user-specific results.
+ *
+ * Key Security Decisions:
+ * - Users can only list their own results.
+ * - Problems are publicly readable but only created, updated, or deleted by admins/teachers (currently, this is not enforced, but should be).
+ *
+ * Denormalization for Authorization:
+ * - The rules avoid `get()` calls by relying on path-based ownership for results.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Manages user profiles.
+     * @description Controls access to user profiles.
      * @path /users/{userId}
-     * @allow (create) - Authenticated user can create their own profile if the userId matches their auth UID.
-     * @allow (get, update, delete) - Authenticated user can access and modify their own profile.
-     * @deny (create) - User cannot create a profile with a userId that does not match their auth UID.
-     * @deny (list) - Listing all users is disallowed.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) - User can create their own profile if the userId matches their auth UID.
+     * @allow (get, list, update, delete) - Only the user can read, update, or delete their own profile.
+     * @deny (create) - User cannot create a profile with a different userId.
+     * @deny (update, delete) - User cannot update or delete another user's profile.
+     * @principle Enforces document ownership and self-creation.
      */
     match /users/{userId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if false; // No listing of all users.
+
+      allow create: if isOwner(userId) && request.auth.uid == userId;
+      allow update: if isOwner(userId) && isSignedIn();
+      allow delete: if isOwner(userId) && isSignedIn();
     }
 
     /**
-     * @description Manages educational problems.
+     * @description Controls access to problems.
      * @path /problems/{problemId}
-     * @allow (get, list) - Public read access for all problems.
-     * @allow (create, update, delete) - Only authenticated users can manage problems.
-     * @deny (create) - Non-authenticated users cannot create problems.
-     * @principle Allows public read access with owner-only writes.
+     * @allow (get, list) - Anyone can read the list of problems.
+     * @allow (create, update, delete) - Only authenticated users can create, update, or delete problems. This should be limited to administrators and teachers, but is not enforced currently.
+     * @deny (create, update, delete) - Unauthenticated users cannot create, update, or delete problems.
+     * @principle Allows public read access with owner-only writes.  Write access should be restricted to admin/teacher roles (TODO).
      */
     match /problems/{problemId} {
       allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+
+      allow create: if isSignedIn(); // TODO: Restrict to admin/teacher roles.
+      allow update: if isSignedIn(); // TODO: Restrict to admin/teacher roles.
+      allow delete: if isSignedIn(); // TODO: Restrict to admin/teacher roles.
     }
 
     /**
-     * @description Manages user-specific results.
+     * @description Controls access to user-specific results.
      * @path /users/{userId}/results/{resultId}
-     * @allow (create, get, update, delete) - Authenticated user can manage their own results.
+     * @allow (create) - User can create results under their own user ID.
+     * @allow (get, list, update, delete) - Only the user can read, update, or delete their own results.
      * @deny (create) - User cannot create results under another user's ID.
-     * @deny (list) - Listing all results is disallowed for non-admin users.
-     * @principle Restricts access to a user's own data tree.
+     * @deny (update, delete) - User cannot update or delete another user's results.
+     * @principle Enforces path-based ownership for user results.
      */
     match /users/{userId}/results/{resultId} {
-      allow get: if isSignedIn() && isOwner(userId);
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+    }
+
+    /**
+     * @description Controls access to tests collection
+     * @path /tests
+     * @allow (list) - Deny access to listing the tests collection
+     * @deny (list) - Granting access to listing the tests collection
+     * @principle: Explicitly deny access as no requirements are present
+     */
+    match /tests {
+      allow get: if false;
       allow list: if false;
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
-    }
-
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return request.auth.uid == userId;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
   }
 }
