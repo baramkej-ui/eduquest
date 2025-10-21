@@ -1,14 +1,11 @@
 'use client';
 
-import { getAuth } from 'firebase/auth';
-
 import AppHeader from '@/components/layout/app-header';
 import AppSidebar from '@/components/layout/app-sidebar';
 import GlobalLoader from '@/components/layout/global-loader';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useDoc, useFirestore, useUser, useMemoFirebase, useAuth } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { createContext, useContext, useEffect } from 'react';
@@ -62,35 +59,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isLoading = isUserLoading || isAppUserLoading;
 
-  // Effect for refreshing token
+  // Effect for handling auth state
   useEffect(() => {
+    // First, handle token refresh if user is logged in
     if (firebaseUser) {
-      // Force refresh of the ID token to get the latest custom claims.
       firebaseUser.getIdToken(true).catch((error) => {
         console.error('Error refreshing ID token:', error);
       });
     }
-  }, [firebaseUser]);
 
-
-  // Effect for handling redirection
-  useEffect(() => {
-    // Wait until all loading is complete
-    if (isLoading) {
-      return;
-    }
-
-    // After loading, if the user is not authenticated, or doesn't have the app user data,
-    // or their role is not 'admin', then sign them out and redirect.
-    if (!firebaseUser || !appUser || appUser.role !== 'admin') {
-      if (auth) {
-        signOut(auth);
+    // After all loading is complete, check for authentication and authorization.
+    if (!isLoading) {
+      if (!firebaseUser || !appUser || appUser.role !== 'admin') {
+        if (auth) {
+          signOut(auth);
+        }
+        router.push('/');
       }
-      router.push('/');
     }
   }, [isLoading, firebaseUser, appUser, auth, router]);
 
   // Show loader until all data is loaded and verified.
+  // This is the crucial check: we only proceed if loading is false AND we have a valid admin user.
   if (isLoading || !appUser || !firebaseUser || appUser.role !== 'admin') {
     return <GlobalLoader />;
   }
